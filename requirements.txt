@@ -1,0 +1,14 @@
+pandas
+numpy
+openai
+transformers
+matplotlib
+pyyaml
+pytest
+pymongo
+langchain
+langchain-community
+chromadb
+tiktoken
+pyyaml
+scikit-learn

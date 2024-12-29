@@ -6,9 +6,11 @@ matplotlib
 pyyaml
 pytest
 pymongo
-langchain
 langchain-community
-chromadb
+langchain_chroma
 tiktoken
 pyyaml
 scikit-learn
+jinja2
+langchain_ollama
+langchain_huggingface

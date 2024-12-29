@@ -1,4 +1,4 @@
-problems:
+problem_types:
   - "Login Issues"
   - "Billing Errors"
   - "Delivery Delays"

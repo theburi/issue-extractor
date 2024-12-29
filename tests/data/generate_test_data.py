@@ -3,7 +3,7 @@ import random
 from datetime import datetime, timedelta
 from pymongo import MongoClient
 
-def generate_test_data(num_records=1000):
+def generate_test_data(num_records=100):
     problems = [
         "Login authentication failure",
         "Slow application response",

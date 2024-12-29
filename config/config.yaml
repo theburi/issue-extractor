@@ -1,33 +1,47 @@
 mongodb:
   uri: "mongodb://localhost:27017"
   database: "issue_extractor"
-  raw_collection: "raw_data"
+  raw_collection: "test_data"
   processed_collection: "processed_data"
   results_collection: "results"
 
 llm:
-  model_name: "gpt-4o"
+  model_name: "llama3.2"  # Changed from llama3.2
   temperature: 0.1
   max_tokens: 2000
 
+embeddings:
+  model_name: "all-MiniLM-L6-v2"
+
 prompts:
   problem_extraction: |
-    Given the following context, identify and extract problems:
-    Current document: {context.current_doc}
-    Similar cases: {context.similar_cases}
-    Extract specific problems, their severity, and impact.
+    Analyze the following text and extract key problems.
+    
+    Text: {text}
+    
+    Similar cases:
+    {similar_cases}
+    
+    Instructions:
+    1. Identify specific problems
+    2. Note severity (High/Medium/Low)
+    3. List potential impact
+    
+    Output format:
+    {{"Problem": "<problem description>", "Severity": "<level>", "Impact": "<description>" }}
+    
 
 paths:
-  taxonomy: "./data/taxonomy.json"
+  taxonomy: "./config/taxonomy.yaml"
   templates: "./templates"
 
 vector_store:
-  persist_directory: "./data/vectorstore"
+  persist_directory: ".\\data\\vectorstore"
   similarity_threshold: 0.85
 
 reports:
   template_dir: "templates"
-  output_dir: "data/results"
+  output_dir: "data\\results"
   report_filename: "problem_analysis.html"
 
 issue-extractor:

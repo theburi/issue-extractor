@@ -33,13 +33,17 @@ def clean_text(text: str) -> str:
         str: Cleaned text.
     """
     if not isinstance(text, str):
-        return ""
+        return None
     
     text = text.lower()  # Convert to lowercase
     text = re.sub(r"http\S+|www\S+", "", text)  # Remove URLs
     text = re.sub(r"\s+", " ", text)  # Replace multiple whitespaces with a single space
     text = re.sub(r"[^a-zA-Z0-9\s]", "", text)  # Remove special characters
-    return text.strip()
+    
+    cleaned_text = text.strip()  # Remove leading/trailing whitespace
+    
+    # Return None if the cleaned text is empty or only whitespace
+    return cleaned_text if cleaned_text else None
 
 
 def clean_data(data: pd.DataFrame) -> pd.DataFrame:

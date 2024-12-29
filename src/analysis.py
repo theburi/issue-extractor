@@ -16,13 +16,14 @@ def problem_frequency_analysis(data: pd.DataFrame) -> pd.DataFrame:
     Returns:
         pd.DataFrame: DataFrame with problems and their frequencies.
     """
-    if "problems" not in data.columns:
-        raise ValueError("DataFrame must contain a 'problems' column")
+    print (data.columns)
+    if "problem_types" not in data.columns:
+        raise ValueError("DataFrame must contain a 'problem_types' column")
     
     logging.info("Starting problem frequency analysis.")
-    problem_list = data["problems"].explode()  # Flatten list of problems into rows
+    problem_list = data["problem_types"].explode()  # Flatten list of problems into rows
     problem_counts = Counter(problem_list)
-    frequency_df = pd.DataFrame(problem_counts.items(), columns=["problem", "frequency"])
+    frequency_df = pd.DataFrame(problem_counts.items(), columns=["problem_types", "frequency"])
     frequency_df.sort_values(by="frequency", ascending=False, inplace=True)
     logging.info("Problem frequency analysis completed.")
     return frequency_df
@@ -38,21 +39,21 @@ def map_problems_to_customers(data: pd.DataFrame) -> pd.DataFrame:
     Returns:
         pd.DataFrame: A DataFrame with each problem and the list of customers who reported it.
     """
-    if "customer_id" not in data.columns or "problems" not in data.columns:
-        raise ValueError("DataFrame must contain 'customer_id' and 'problems' columns")
+    if "customer_id" not in data.columns or "problem_types" not in data.columns:
+        raise ValueError("DataFrame must contain 'customer_id' and 'problem_types' columns")
     
     logging.info("Mapping problems to customers.")
     problem_customer_map = {}
     for _, row in data.iterrows():
         customer_id = row["customer_id"]
-        for problem in row["problems"]:
+        for problem in row["problem_types"]:
             if problem not in problem_customer_map:
                 problem_customer_map[problem] = set()
             problem_customer_map[problem].add(customer_id)
     
     # Convert to DataFrame
     mapped_df = pd.DataFrame([
-        {"problem": problem, "customers": list(customers), "num_customers": len(customers)}
+        {"problem_types": problem, "customers": list(customers), "num_customers": len(customers)}
         for problem, customers in problem_customer_map.items()
     ])
     mapped_df.sort_values(by="num_customers", ascending=False, inplace=True)

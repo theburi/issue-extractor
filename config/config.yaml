@@ -1,7 +1,7 @@
 mongodb:
   uri: "mongodb://localhost:27017"
-  database: "issue_extractor"
-  raw_collection: "test_data"
+  database: "jira_data"
+  raw_collection: "issues"
   processed_collection: "processed_data"
   results_collection: "results"
 
@@ -15,9 +15,10 @@ embeddings:
 
 prompts:
   problem_extraction: |
+    You are an expert at analyzing customer issues. Your task is to identify problems described in the input text and return the results.
     Analyze the following text and extract key problems.
     
-    Text: {text}
+    Customer case: {text}
     
     Similar cases:
     {similar_cases}
@@ -27,8 +28,14 @@ prompts:
     2. Note severity (High/Medium/Low)
     3. List potential impact
     
-    Output format:
-    {{"Problem": "<problem description>", "Severity": "<level>", "Impact": "<description>" }}
+    Please return the extracted problems as a list in JSON format, like this:
+    [
+      {{
+        "Problem": "<problem description>", 
+        "Severity": "<level>", 
+        "Impact": "<description>" 
+      }}
+    ]
     
 
 paths:

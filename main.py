@@ -2,6 +2,7 @@ import yaml
 import logging
 from pathlib import Path
 from typing import List, Dict
+from dotenv import load_dotenv
 
 from langchain.chains import LLMChain
 from langchain_core.prompts import PromptTemplate   
@@ -18,6 +19,7 @@ from src.analysis import problem_frequency_analysis, map_problems_to_customers
 from src.reporting import generate_enhanced_report, generate_problem_report
 from sklearn.cluster import KMeans
 import numpy as np
+import pandas as pd
 
 
 # Setup logging
@@ -26,14 +28,26 @@ logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 
-def load_config(config_path: str) -> dict:
-    """Load configuration from YAML file."""
+
+def load_configuration() -> Dict:
+    config_path = Path("./config/config.yaml")
+    config = []
     try:
         with open(config_path, 'r') as f:
-            return yaml.safe_load(f)
+            config= yaml.safe_load(f)
     except Exception as e:
         logging.error(f"Failed to load config from {config_path}: {e}")
         raise
+
+    try:
+        with open(Path(config["paths"]["taxonomy"]), 'r') as f:
+            config["taxonomy"] = yaml.safe_load(f)
+    except Exception as e:
+        logging.error(f"Failed to load taxonomy: {e}")
+        raise
+    logging.info("Configuration loaded successfully")
+    return config
+
 
 def setup_llm(config: Dict) -> OllamaLLM:
     return OllamaLLM(
@@ -63,6 +77,7 @@ def create_vector_store(documents: List, embeddings) -> Chroma:
         embedding=embeddings,
         persist_directory="./data/vectorstore"
     )
+
 def semantic_clustering(problems: List[str], embeddings: List[np.ndarray], n_clusters: int = 5) -> Dict[int, List[str]]:
     """Cluster problems based on their semantic embeddings."""
     kmeans = KMeans(n_clusters=n_clusters, random_state=42)
@@ -74,14 +89,50 @@ def semantic_clustering(problems: List[str], embeddings: List[np.ndarray], n_clu
     
     return clustered_problems
 
+def preprocess_clustered_problems(clustered_problems: Dict[int, List[str]]) -> pd.DataFrame:
+    """Preprocess clustered problems into a DataFrame with counts."""
+    processed_data = []
+    
+    for cluster_id, problems in clustered_problems.items():
+        problem_counts = pd.Series(problems).value_counts().to_dict()  # Count occurrences
+        for problem, count in problem_counts.items():
+            processed_data.append({
+                "cluster_id": cluster_id,
+                "problem_types": problem,
+                "frequency": count
+            })
+    
+    return pd.DataFrame(processed_data)
+
+def process_row(row, vector_store, llm, taxonomy, config):
+    """Process a single row of data."""
+    try:
+        similar_docs = vector_store.similarity_search(row['description'], k=3)
+        similar_cases = "\n".join([d.page_content for d in similar_docs])
+        
+        prompt = PromptTemplate(
+            template=config["prompts"]["problem_extraction"],
+            input_variables=["text", "similar_cases"]
+        )
+        chain = prompt | llm
+        results = chain.invoke({
+            "text": row['description'],
+            "similar_cases": similar_cases
+        })
+        standardized_results = [standardize_problems(result, taxonomy) for result in parse_llm_output(results)]
+        for result in standardized_results:
+            result["customer_id"] = row["cid"]
+            result["key"] = row["key"]
+        return standardized_results
+    except Exception as e:
+        logging.error(f"Error processing row: {e}", exc_info=True)
+        return []
+
 def main():
     try:
+        load_dotenv()
         # Load configuration
-        config_path = Path("./config/config.yaml")
-        config = load_config(config_path)
-        logging.info("Configuration loaded successfully")
-
-        taxonomy = load_config(Path(config["paths"]["taxonomy"]))
+        config = load_configuration()
 
         # Setup LLM and embeddings        
         llm = setup_llm(config)
@@ -96,37 +147,18 @@ def main():
         vector_store = create_vector_store(cleaned_data, embeddings)
         
         # Process documents and extract problems
-        problems = []
-        standardized_problems=[]
+        standardized_problems = []
         for _, row in cleaned_data.iterrows():
-            try:
-                similar_docs = vector_store.similarity_search(
-                    row['communication'],
-                    k=3
-                )
-                
-                # Format similar cases
-                similar_cases = "\n".join([d.page_content for d in similar_docs])
-                
-                # Create chain with updated prompt variables
-                prompt = PromptTemplate(
-                    template=config["prompts"]["problem_extraction"],
-                    input_variables=["text", "similar_cases"]
-                )
-                
-                chain = prompt | llm
-                results = chain.invoke({
-                    "text": row['communication'],
-                    "similar_cases": similar_cases
-                })
-                for result in parse_llm_output(results):                   
-                    problems.append(result)
-                    standardized_problem = standardize_problems(result, taxonomy=taxonomy)
-                    standardized_problems.append(standardized_problem)
-                    
-            except Exception as e:
-                logging.error(f"Error processing document: {str(e)}", exc_info=True)
-                continue
+            problems = process_row(row, vector_store, llm, config["taxonomy"], config)            
+            for problem in problems:
+                standardized_problems.extend(problem)
+                print("***", problem)
+                db[config["mongodb"]["processed_collection"]].update_one(
+                        {"description": problem["description"]},  # Match on unique description
+                        {"$set": problem},  # Update with the full problem document
+                        upsert=True  # Insert if not found
+                    )
+            logging.info(f"Standardized problems saved or updated in MongoDB collection: {config["mongodb"]["processed_collection"]}")
         
          # Ensure standardized problems are strings for embedding
         standardized_problem_texts = [p["description"] for p in standardized_problems if p and "description" in p]
@@ -138,10 +170,14 @@ def main():
             problem_embeddings
         )
         
+        # Preprocess clustered problems
+        print (clustered_problems)
+        clustered_problems_df = preprocess_clustered_problems(clustered_problems)
+        
         # Analysis and reporting
-        print(clustered_problems)
-        frequency = problem_frequency_analysis(clustered_problems)
-        # problem_customer_map = map_problems_to_customers(clustered_problems)
+        frequency = problem_frequency_analysis(clustered_problems_df)
+
+        problem_customer_map = map_problems_to_customers(clustered_problems)
         
         # Generate enhanced HTML report
         output_path = Path("./data/results/problem_report.html")
@@ -149,8 +185,8 @@ def main():
         generate_enhanced_report(
             frequency,
             # problem_customer_map,
-            vector_store,
-            str(output_path)
+            # vector_store,
+            output_path=str(output_path)
         )
         
         logging.info(f"Analysis complete - Report available at {output_path}")
@@ -159,6 +195,8 @@ def main():
     except Exception as e:
         logging.error(f"Pipeline failed: {e}")
         raise
+
+
 
 if __name__ == "__main__":
     main()

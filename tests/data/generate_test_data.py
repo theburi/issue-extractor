@@ -26,7 +26,7 @@ def generate_test_data(num_records=100):
         record = {
             "customer_id": random.choice(customers),
             "timestamp": (datetime.now() - timedelta(days=random.randint(0, 30))).isoformat(),
-            "communication": f"""
+            "description": f"""
                 Issue Report:
                 Customer is experiencing {random.choice(problems)}.
                 Impact: System performance degraded by {random.randint(10, 90)}%.

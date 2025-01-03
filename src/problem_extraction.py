@@ -4,23 +4,30 @@ import logging
 from typing import Dict, List
 
 def parse_llm_output(output: str) -> List[Dict]:
-    """Parse LLM output to extract problems, severity, and impact."""
+    """Parse LLM output to extract problems, severity, and impact using regex."""
     problems = []
-    problem_pattern = re.compile(r'\d+\.\s*({.*?})')
-
-    matches = problem_pattern.findall(output)
-    for match in matches:
-        try:
-            problem = json.loads(match)
+    try:
+        # Use regex to locate the JSON array in the output
+        json_pattern = re.compile(r'\[\s*{.*?}\s*]', re.DOTALL)
+        match = json_pattern.search(output)
+        if not match:
+            raise ValueError("No JSON array found in the output.")
+        
+        # Extract the JSON block
+        json_block = match.group(0)
+        parsed_data = json.loads(json_block)
+        
+        # Process each problem in the JSON list
+        for problem in parsed_data:
             problems.append({
                 "description": problem.get("Problem", "").strip(),
                 "severity": problem.get("Severity", "").strip(),
                 "impact": problem.get("Impact", "").strip()
             })
-        except json.JSONDecodeError as e:
-            logging.error(f"Error parsing problem JSON: {str(e)}")
-            continue
-
+    except (json.JSONDecodeError, ValueError) as e:
+        logging.error(f"Error parsing LLM output JSON: {str(e)}")
+        return problems  # Return an empty list if parsing fails
+    
     return problems
 
 def standardize_problems(problem: Dict, taxonomy: Dict) -> Dict:
@@ -39,7 +46,6 @@ def standardize_problems(problem: Dict, taxonomy: Dict) -> Dict:
         if not problem_type:
             problem_type = "unknown"
             severity = "low"
-            impact = "general"
 
         return {
             "problem_type": problem_type,

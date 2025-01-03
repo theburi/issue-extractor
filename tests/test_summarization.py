@@ -9,10 +9,10 @@ def test_summarize_text():
     assert len(summary) > 0
 
 def test_batch_summarize():
-    data = pd.DataFrame({"communication": [
+    data = pd.DataFrame({"description": [
         "I am unable to log into my account.",
         "The billing system charged me twice for the same transaction."
     ]})
-    summarized_data = batch_summarize(data, text_column="communication")
+    summarized_data = batch_summarize(data, text_column="description")
     assert "summary" in summarized_data.columns
     assert len(summarized_data["summary"]) == len(data)

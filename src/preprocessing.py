@@ -51,17 +51,17 @@ def clean_data(data: pd.DataFrame) -> pd.DataFrame:
     Cleans raw customer communication data.
     
     Args:
-        data (pd.DataFrame): Raw data with at least 'communication' column.
+        data (pd.DataFrame): Raw data with at least 'description' column.
     
     Returns:
         pd.DataFrame: Cleaned data.
     """
-    if "communication" not in data.columns:
-        raise ValueError("DataFrame must contain a 'communication' column")
+    if "description" not in data.columns:
+        raise ValueError("DataFrame must contain a 'description' column")
     
     logging.info("Starting data cleaning process.")
-    data["communication"] = data["communication"].apply(clean_text)
-    data.dropna(subset=["communication"], inplace=True)  # Remove rows with empty communication
+    data["description"] = data["description"].apply(clean_text)
+    data.dropna(subset=["description"], inplace=True)  # Remove rows with empty communication
     data.reset_index(drop=True, inplace=True)
     logging.info("Data cleaning process completed.")
     return data

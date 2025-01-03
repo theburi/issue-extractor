@@ -77,8 +77,7 @@ def visualize_trends(trend_data: pd.DataFrame, output_path: str):
 
 def generate_enhanced_report(
     frequency_data: Dict,
-    problem_customer_map: Dict,
-    vector_store,
+    # problem_customer_map: Dict,
     output_path: str
 ) -> None:
     """Generate enhanced HTML report with problem analysis."""
@@ -86,9 +85,9 @@ def generate_enhanced_report(
     # Create report data
     report_data = {
         "problem_frequency": pd.DataFrame(frequency_data).to_html(),
-        "customer_problems": pd.DataFrame(problem_customer_map).to_html(),
+        # "customer_problems": pd.DataFrame(problem_customer_map).to_html(),
         "total_problems": len(frequency_data),
-        "total_customers": len(set(problem_customer_map.values()))
+        # "total_customers": len(set(problem_customer_map.values()))
     }
     
     # Load template

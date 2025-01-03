@@ -11,7 +11,7 @@ openai.api_key = "your_openai_api_key"
 
 def summarize_text(text: str, model: str = "gpt-3.5-turbo", max_tokens: int = 150) -> str:
     """
-    Generates a summary for a single communication using OpenAI's GPT model.
+    Generates a summary for a single description using Ollama GPT model.
     
     Args:
         text (str): The input text to summarize.
@@ -43,12 +43,12 @@ def summarize_text(text: str, model: str = "gpt-3.5-turbo", max_tokens: int = 15
         return "Error in generating summary."
 
 
-def batch_summarize(data: pd.DataFrame, text_column: str = "communication", model: str = "gpt-3.5-turbo") -> pd.DataFrame:
+def batch_summarize(data: pd.DataFrame, text_column: str = "description", model: str = "gpt-3.5-turbo") -> pd.DataFrame:
     """
-    Summarizes customer communications in a batch process.
+    Summarizes customer issue description in a batch process.
     
     Args:
-        data (pd.DataFrame): DataFrame containing customer communications.
+        data (pd.DataFrame): DataFrame containing customer description.
         text_column (str): The column name containing the text to summarize.
         model (str): The GPT model to use for summarization.
     

@@ -28,39 +28,6 @@ def problem_frequency_analysis(data: pd.DataFrame) -> pd.DataFrame:
     logging.info("Problem frequency analysis completed.")
     return frequency_df
 
-
-def map_problems_to_customers(data: pd.DataFrame) -> pd.DataFrame:
-    """
-    Maps problems to customers who reported them.
-    
-    Args:
-        data (pd.DataFrame): Processed data with 'customer_id' and 'problems' columns.
-    
-    Returns:
-        pd.DataFrame: A DataFrame with each problem and the list of customers who reported it.
-    """
-    if "customer_id" not in data.columns or "problem_types" not in data.columns:
-        raise ValueError("DataFrame must contain 'customer_id' and 'problem_types' columns")
-    
-    logging.info("Mapping problems to customers.")
-    problem_customer_map = {}
-    for _, row in data.iterrows():
-        customer_id = row["customer_id"]
-        for problem in row["problem_types"]:
-            if problem not in problem_customer_map:
-                problem_customer_map[problem] = set()
-            problem_customer_map[problem].add(customer_id)
-    
-    # Convert to DataFrame
-    mapped_df = pd.DataFrame([
-        {"problem_types": problem, "customers": list(customers), "num_customers": len(customers)}
-        for problem, customers in problem_customer_map.items()
-    ])
-    mapped_df.sort_values(by="num_customers", ascending=False, inplace=True)
-    logging.info("Problem-to-customer mapping completed.")
-    return mapped_df
-
-
 def analyze_problem_trends(data: pd.DataFrame, date_column: str = "processed_at") -> pd.DataFrame:
     """
     Analyzes problem trends over time.

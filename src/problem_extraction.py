@@ -6,6 +6,7 @@ from typing import Dict, List
 def parse_llm_output(output: str) -> List[Dict]:
     """Parse LLM output to extract problems, severity, and impact using regex."""
     problems = []
+    parsed_data={}
     try:
         # Use regex to locate the JSON array in the output
         json_pattern = re.compile(r'\[\s*{.*?}\s*]', re.DOTALL)
@@ -25,7 +26,7 @@ def parse_llm_output(output: str) -> List[Dict]:
                 "impact": problem.get("Impact", "").strip()
             })
     except (json.JSONDecodeError, ValueError) as e:
-        logging.error(f"Error parsing LLM output JSON: {str(e)}")
+        logging.error(f"Error parsing LLM output JSON: {output} \n Exception: {str(e)}")
         return problems  # Return an empty list if parsing fails
     
     return problems

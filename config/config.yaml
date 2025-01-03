@@ -14,6 +14,7 @@ embeddings:
   model_name: "all-MiniLM-L6-v2"
 
 prompts:
+  version: 1
   problem_extraction: |
     You are an expert at analyzing customer issues. Your task is to identify problems described in the input text and return the results.
     Analyze the following text and extract key problems.

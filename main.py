@@ -110,7 +110,7 @@ def process_row(row, vector_store, llm, taxonomy, config, db):
     try:
         # Check if the record already exists
         existing_record = db[config["mongodb"]["processed_collection"]].find_one(
-            {"key": row["key"], "version": config["prompts"]["version"]}
+            {"key": row["key"], "version": config["prompts"]["version"], "problem_type": { "$ne": "unknown" } }
         )
         if existing_record:
             logging.info(f"Record with key {row['key']} and version {config['prompts']['version']} already exists. Skipping processing.")
@@ -128,7 +128,7 @@ def process_row(row, vector_store, llm, taxonomy, config, db):
             "text": row['description'],
             "similar_cases": similar_cases
         })
-        standardized_results = [standardize_problems(result, taxonomy) for result in parse_llm_output(results)]
+        standardized_results = [standardize_problems(result, taxonomy, llm, config["prompts"]["problem_type"]) for result in parse_llm_output(results)]
         for result in standardized_results:
             result["customer_id"] = row["cid"]
             result["key"] = row["key"]
@@ -167,17 +167,17 @@ def main():
             for _, row in cleaned_data.iterrows():
                 problems = process_row(row, vector_store, llm, config["taxonomy"], config, db)            
                 for problem in problems:
-                    standardized_problems.extend(problem)
-                    print("***", problem)
+                    standardized_problems.extend(problem)                    
                     db[config["mongodb"]["processed_collection"]].update_one(
                             {"description": problem["description"], "key": problem["key"]},  # Match on unique description
                             {"$set": problem},  # Update with the full problem document
                             upsert=True  # Insert if not found
                         )
                 logging.info(f"Standardized problems {row['key']} saved or updated in MongoDB collection: {config['mongodb']['processed_collection']}")
+               
 
         if args.stage <= 2:        
-            # Load MongoDb Documents that were created in a previous code block to load all docuemnts that exists in the collection
+            # Load MongoDb Documents that were created in a previous code block to load all documents that exists in the collection
             standardized_problems = load_collection(db, config["mongodb"]["processed_collection"])
             logging.info(f"Standardized Problems: { type(standardized_problems) }")
             

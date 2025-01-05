@@ -1,4 +1,5 @@
-import openai
+from src.llm_utils import parse_llm_output, setup_llm
+from langchain_core.prompts import PromptTemplate 
 import pandas as pd
 from collections import Counter
 import logging
@@ -6,27 +7,58 @@ import logging
 # Setup logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
-
-def analyze_description(description):
+def analyze_description_problem_type(description, taxonomy, config):
     """
-    Analyze the description to determine the problem type using an LLM.
+    Analyze the issue to determine its problem type using an LLM.
     
     Args:
         description (str): The description of the issue.
+        taxonomy (dict): Taxonomy of problem types.
     
     Returns:
-        str: The determined problem type.
+        dict: {
+            "confidence": int,
+            "problem_type": str,
+            "problem_type_description": str
+        }
     """
-    response = openai.Completion.create(
-        engine="text-davinci-003",
-        prompt=f"Extract the problem type from the following description: {description}\nProblem types: Login Issues, Billing Errors, Delivery Delays, Technical Support",
-        max_tokens=10,
-        n=1,
-        stop=None,
-        temperature=0.5,
-    )
-    problem_type = response.choices[0].text.strip()
-    return problem_type if problem_type in PROBLEM_TYPES else "unknown"
+
+    try:
+        llm = setup_llm(config)
+        prompt = PromptTemplate(
+            template=config["prompts"]["problem_type_classification"],
+            input_variables=["description", "taxonomy"]
+        )
+        chain = prompt | llm
+
+        results = chain.invoke({
+            "description":description,
+            "taxonomy": taxonomy
+        })
+        parsed_output = results
+
+        if not parsed_output or "problem_type" not in parsed_output[0]:
+            raise ValueError("Failed to parse LLM response.")
+
+        problem_type_data = parsed_output[0]
+        problem_type = problem_type_data.get("problem_type", "unknown")
+        confidence = int(problem_type_data.get("confidence", 0))
+        problem_type_description = taxonomy["problem_descriptions"].get(problem_type, "No description available.")
+
+        return {
+            "confidence": confidence,
+            "problem_type": problem_type,
+            "problem_type_description": problem_type_description
+        }
+
+    except Exception as e:
+        logging.error(f"Error analyzing problem type: {e}", exc_info=True)
+        return {
+            "confidence": 0,
+            "problem_type": "unknown",
+            "problem_type_description": "Unable to determine problem type."
+        }
+
 
 def problem_frequency_analysis(data: pd.DataFrame) -> pd.DataFrame:
     """

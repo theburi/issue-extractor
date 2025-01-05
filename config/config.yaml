@@ -49,7 +49,15 @@ prompts:
 
     Output:
     {{Your identified problem type here}}
+  problem_type_classification: |
+    Given the description: 
     
+    {description} 
+    
+    Classify it into one of the following problem types: 
+    {taxonomy}. 
+    
+    Provide a confidence level between 0-100.
 
 paths:
   taxonomy: "./config/taxonomy.yaml"

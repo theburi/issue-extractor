@@ -7,17 +7,16 @@ import argparse  # Added for command-line argument parsing
 
 from langchain.chains import LLMChain
 from langchain_core.prompts import PromptTemplate   
-from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_chroma import Chroma
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
 
 from src.db.mongodb_client import connect_to_mongo, load_collection, insert_to_collection
 from src.preprocessing import clean_data
-from src.problem_extraction import parse_llm_output, standardize_problems
+from src.problem_extraction import standardize_problems
 from src.analysis import problem_frequency_analysis
 from src.reporting import generate_enhanced_report, generate_problem_report
-from src.llm_utils import setup_llm
+from src.llm_utils import parse_llm_output, setup_llm, setup_embeddings
 from sklearn.cluster import KMeans
 import numpy as np
 import pandas as pd
@@ -47,10 +46,7 @@ def load_configuration() -> Dict:
     logging.info("Configuration loaded successfully")
     return config
 
-def setup_embeddings(config: Dict) -> HuggingFaceEmbeddings:
-    return HuggingFaceEmbeddings(
-        model_name=config["embeddings"]["model_name"]
-    )
+
 
 
 def create_vector_store(documents: List, embeddings) -> Chroma:

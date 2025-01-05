@@ -2,7 +2,6 @@ import re
 import json
 import logging
 from typing import Dict, List
-from langchain_core.prompts import PromptTemplate 
 
 def parse_llm_output(output: str) -> List[Dict]:
     """Parse LLM output to extract problems, severity, and impact using regex."""
@@ -13,41 +12,41 @@ def parse_llm_output(output: str) -> List[Dict]:
         json_pattern = re.compile(r'\[\s*{.*?}\s*]', re.DOTALL)
         match = json_pattern.search(output)
         if not match:
-            raise ValueError("No JSON array found in the output.")
-        
-        # Extract the JSON block
-        json_block = match.group(0)
-        parsed_data = json.loads(json_block)
-        
-        # Process each problem in the JSON list
-        for problem in parsed_data:
-            problems.append({
-                "description": problem.get("Problem", "").strip(),
-                "severity": problem.get("Severity", "").strip(),
-                "impact": problem.get("Impact", "").strip()
-            })
-    except (json.JSONDecodeError, ValueError) as e:
-        logging.error(f"Error parsing LLM output JSON: {output} \n Exception: {str(e)}")
-        # Use regex to locate the JSON-like structure in the output
-        json_pattern = re.compile(r'"Problem":.*?"Severity":.*?"Impact":.*?(?=\n|$)', re.DOTALL)
-        matches = json_pattern.findall(output)
+             # Use regex to locate the JSON-like structure in the output
+            json_pattern = re.compile(r'"?Problem"?:.*?"?Severity"?:.*?"?Impact"?:.*?(?=\n\n|$)', re.DOTALL)
+            matches2 = json_pattern.findall(output)
+            if not matches2:
+                raise ValueError("No JSON array found in the output.")
+            for match1 in matches2:
+                # Add braces to ensure valid JSON
+                print ("match ",match1)
+                json_block = "{" + match1 + "}"
+                parsed_data = json.loads(json_block)
 
-        for match in matches:
-            # Add braces to ensure valid JSON
-            json_block = "{" + match + "}"
+                problems.append({
+                    "description": parsed_data.get("Problem", "").strip(),
+                    "severity": parsed_data.get("Severity", "").strip(),
+                    "impact": parsed_data.get("Impact", "").strip()
+                })
+        else:           
+            # Extract the JSON block
+            json_block = match.group(0)
             parsed_data = json.loads(json_block)
-
-            problems.append({
-                "description": parsed_data.get("Problem", "").strip(),
-                "severity": parsed_data.get("Severity", "").strip(),
-                "impact": parsed_data.get("Impact", "").strip()
-            })
-
+            
+            # Process each problem in the JSON list
+            for problem in parsed_data:
+                problems.append({
+                    "description": problem.get("Problem", "").strip(),
+                    "severity": problem.get("Severity", "").strip(),
+                    "impact": problem.get("Impact", "").strip()
+                })
+    except (json.JSONDecodeError, ValueError) as e:       
+        logging.error(f"Error parsing LLM output JSON: {output} \n Exception: {str(e)}")
         return problems  # Return an empty list if parsing fails
     
     return problems
 
-def standardize_problems(problem: Dict, taxonomy: Dict, llm, template) -> Dict:
+def standardize_problems(problem: Dict, taxonomy: Dict) -> Dict:
     """Standardize problems based on taxonomy."""
     try:
         problem_type = None
@@ -55,25 +54,13 @@ def standardize_problems(problem: Dict, taxonomy: Dict, llm, template) -> Dict:
         impact = problem.get("impact", "general").lower()
         description = problem.get("description", "")
 
+        for p_type in taxonomy["problem_types"]:
+            if p_type in description.lower():
+                problem_type = p_type
+                break
 
-        # Prepare prompt for LLM to classify problem type
-        prompt = PromptTemplate(
-            template=template,
-            input_variables=["description", "problem_types"]
-        )
-
-        # Run LLM chain to classify problem
-        chain = prompt | llm
-        problem_type = chain.invoke({
-            "description": description,
-            "problem_types": ", ".join(taxonomy["problem_types"])
-        })
-
-        problem_type = next(
-            (ptype for ptype in taxonomy["problem_types"] if ptype.lower() in problem_type.lower()),
-            "unknown"
-        )
-        if problem_type == "unknown":
+        if not problem_type:
+            problem_type = "unknown"
             severity = "low"
 
         return {

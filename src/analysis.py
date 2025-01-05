@@ -1,3 +1,4 @@
+import openai
 import pandas as pd
 from collections import Counter
 import logging
@@ -5,6 +6,27 @@ import logging
 # Setup logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
+
+def analyze_description(description):
+    """
+    Analyze the description to determine the problem type using an LLM.
+    
+    Args:
+        description (str): The description of the issue.
+    
+    Returns:
+        str: The determined problem type.
+    """
+    response = openai.Completion.create(
+        engine="text-davinci-003",
+        prompt=f"Extract the problem type from the following description: {description}\nProblem types: Login Issues, Billing Errors, Delivery Delays, Technical Support",
+        max_tokens=10,
+        n=1,
+        stop=None,
+        temperature=0.5,
+    )
+    problem_type = response.choices[0].text.strip()
+    return problem_type if problem_type in PROBLEM_TYPES else "unknown"
 
 def problem_frequency_analysis(data: pd.DataFrame) -> pd.DataFrame:
     """

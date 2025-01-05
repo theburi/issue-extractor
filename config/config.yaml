@@ -37,6 +37,18 @@ prompts:
         "Impact": "<description>" 
       }}
     ]
+  problem_type: |
+    You are an expert in analyzing customer issues. Your task is to identify the type of problem described in the input text below. 
+    Based on the provided list of existing problem types, return your analysis as a concise single string stating just problem type without any additional explanations.
+
+    Input text:
+    {text}
+
+    Initial list of problem types:
+    {problem_types}
+
+    Output:
+    {{Your identified problem type here}}
     
 
 paths:

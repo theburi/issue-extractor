@@ -1,5 +1,75 @@
 problem_types:
-  - "Login Issues"
-  - "Billing Errors"
-  - "Delivery Delays"
-  - "Technical Support"
+- Login Issues
+- Billing Errors
+- Delivery Delays
+- Technical Support
+- Process Complexity
+- Connection Issues
+- Diagnostic Difficulty
+- Configuration Issue
+- Logging Errors
+- Inefficient process definition management
+- Unclear end dates for instances
+- Variable Update Issue
+- Autocomplete Issue
+- Display Visibility Issue
+- Collaboration Issues
+- Deployment Issues
+- Understanding Issues
+- Operate Process Search
+- Usage Metrics Endpoint
+- Upgrade Path Issues
+- Documentation Issue
+- Nested Document Limit Issue
+- Nice-to-Have Feature Request
+- Disk I/O Latency
+- Insufficient Information
+- Feature Request
+- Unclear Feature Requirements
+- Unclear Feature Benefits
+- User Experience
+- Zeebe Client Exception
+- Process Improvement
+- Inability to define multiple policies for process cleanup
+- Permission Issues
+- Uncertainty about Community Support
+- Known Bug
+- General Feedback
+- Deadline Uncertainty
+- Duplicate JIRA Issue is not in the provided list, so I will choose Login Issues.
+- Search Functionality
+- Difficulty with Search Functionality
+- Business Process Issue
+- Informational Issue
+- SSL Certificate Issues
+- Discrepancy
+- Clarification Needed
+- Uncertainty about product usage
+- Abstraction Issues
+- Process Issue
+- Optimization Issues
+- Invalid Parameter
+- Optimize
+- Clarity Issues
+- Knowledge Gap
+- API Access Issues
+- Phishing Email
+- Deadline Exceeded
+- Duplicate Constraints
+- Zeebe Gateway issue
+- Security Vulnerability
+- Unclear Customer Identification
+- Unclear Requirements
+- Duplicate Entries
+- Discommunication
+- Information Inadequacy
+- What problem would the feature solve does not match any of the existing problem
+  types.
+- Perceived Omission
+- Navigation Issues
+- API Limitation
+- Validation Issues
+- Form Issues
+- Input Validation
+- API Integration Issues
+- Stability Concerns

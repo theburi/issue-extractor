@@ -9,7 +9,6 @@ from langchain.chains import LLMChain
 from langchain_core.prompts import PromptTemplate   
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_chroma import Chroma
-from langchain_ollama.llms import OllamaLLM
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
 
@@ -18,17 +17,16 @@ from src.preprocessing import clean_data
 from src.problem_extraction import parse_llm_output, standardize_problems
 from src.analysis import problem_frequency_analysis
 from src.reporting import generate_enhanced_report, generate_problem_report
+from src.llm_utils import setup_llm
 from sklearn.cluster import KMeans
 import numpy as np
 import pandas as pd
-
 
 # Setup logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
-
 
 def load_configuration() -> Dict:
     config_path = Path("./config/config.yaml")
@@ -48,13 +46,6 @@ def load_configuration() -> Dict:
         raise
     logging.info("Configuration loaded successfully")
     return config
-
-
-def setup_llm(config: Dict) -> OllamaLLM:
-    return OllamaLLM(
-        model=config["llm"]["model_name"],
-        temperature=config["llm"]["temperature"]
-    )
 
 def setup_embeddings(config: Dict) -> HuggingFaceEmbeddings:
     return HuggingFaceEmbeddings(
@@ -110,7 +101,11 @@ def process_row(row, vector_store, llm, taxonomy, config, db):
     try:
         # Check if the record already exists
         existing_record = db[config["mongodb"]["processed_collection"]].find_one(
-            {"key": row["key"], "version": config["prompts"]["version"], "problem_type": { "$ne": "unknown" } }
+            {
+                "key": row["key"]
+                , "version": config["prompts"]["version"]
+            #   , "problem_type": { "$ne": "unknown" } 
+            }
         )
         if existing_record:
             logging.info(f"Record with key {row['key']} and version {config['prompts']['version']} already exists. Skipping processing.")
@@ -128,7 +123,7 @@ def process_row(row, vector_store, llm, taxonomy, config, db):
             "text": row['description'],
             "similar_cases": similar_cases
         })
-        standardized_results = [standardize_problems(result, taxonomy, llm, config["prompts"]["problem_type"]) for result in parse_llm_output(results)]
+        standardized_results = [standardize_problems(result, taxonomy) for result in parse_llm_output(results)]
         for result in standardized_results:
             result["customer_id"] = row["cid"]
             result["key"] = row["key"]

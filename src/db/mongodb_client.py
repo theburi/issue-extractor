@@ -6,10 +6,10 @@ def connect_to_mongo(uri: str, database: str):
     client = MongoClient(uri)
     return client[database]
 
-def load_collection(db, collection_name: str) -> pd.DataFrame:
+def load_collection(db, collection_name: str, query="") -> pd.DataFrame:
     """Loads data from a MongoDB collection into a DataFrame."""
     collection = db[collection_name]
-    data = list(collection.find())
+    data = list(collection.find(query))
     return pd.DataFrame(data)
 
 def insert_to_collection(db, collection_name: str, data: pd.DataFrame):

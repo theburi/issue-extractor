@@ -85,7 +85,7 @@ def generate_enhanced_report(
     # Create report data
     report_data = {
         "problem_frequency": pd.DataFrame(frequency_data).to_html(),
-        # "customer_problems": pd.DataFrame(problem_customer_map).to_html(),
+        # "cluster_id": pd.DataFrame(problem_customer_map).to_html(),
         "total_problems": len(frequency_data),
         # "total_customers": len(set(problem_customer_map.values()))
     }

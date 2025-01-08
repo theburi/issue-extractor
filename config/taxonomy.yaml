@@ -1,75 +1,69 @@
 problem_types:
-- Login Issues
-- Billing Errors
-- Delivery Delays
-- Technical Support
-- Process Complexity
-- Connection Issues
-- Diagnostic Difficulty
-- Configuration Issue
-- Logging Errors
-- Inefficient process definition management
-- Unclear end dates for instances
-- Variable Update Issue
-- Autocomplete Issue
-- Display Visibility Issue
-- Collaboration Issues
-- Deployment Issues
-- Understanding Issues
-- Operate Process Search
-- Usage Metrics Endpoint
-- Upgrade Path Issues
-- Documentation Issue
-- Nested Document Limit Issue
-- Nice-to-Have Feature Request
-- Disk I/O Latency
-- Insufficient Information
-- Feature Request
-- Unclear Feature Requirements
-- Unclear Feature Benefits
-- User Experience
-- Zeebe Client Exception
-- Process Improvement
-- Inability to define multiple policies for process cleanup
-- Permission Issues
-- Uncertainty about Community Support
-- Known Bug
-- General Feedback
-- Deadline Uncertainty
-- Duplicate JIRA Issue is not in the provided list, so I will choose Login Issues.
-- Search Functionality
-- Difficulty with Search Functionality
-- Business Process Issue
-- Informational Issue
-- SSL Certificate Issues
-- Discrepancy
-- Clarification Needed
-- Uncertainty about product usage
-- Abstraction Issues
-- Process Issue
-- Optimization Issues
-- Invalid Parameter
-- Optimize
-- Clarity Issues
-- Knowledge Gap
-- API Access Issues
-- Phishing Email
-- Deadline Exceeded
-- Duplicate Constraints
-- Zeebe Gateway issue
-- Security Vulnerability
-- Unclear Customer Identification
-- Unclear Requirements
-- Duplicate Entries
-- Discommunication
-- Information Inadequacy
-- What problem would the feature solve does not match any of the existing problem
-  types.
-- Perceived Omission
-- Navigation Issues
-- API Limitation
-- Validation Issues
-- Form Issues
-- Input Validation
-- API Integration Issues
-- Stability Concerns
+- performance and reliability issues
+- delivery delays
+- technical support
+- backup and restore
+- data loss
+- backup configuration
+- procedure clarification
+- backup/restore issues
+- process configuration issues
+- operate issues
+- cluster backup failure
+- backup scheduling issue
+- azure environment incompatibility
+- implementation complexity
+- backup management issues
+- broker configuration issues
+- cluster version management
+- backup issues
+- operational issues
+- exporting/importing issues
+- api integration issues
+- authentication failures
+- integration issues
+- restore failures
+- configuration issues
+- upgrade issues
+- process data consistency
+- cluster data consistency issues
+- cloud services limitations
+- backup and restore issues
+- operate errors
+- ui display issues
+- backup/restore issues with multitenancy enabled
+- backup complexity
+- platform integration
+- cluster configuration issues
+- s3 storage management
+- inconsistent data management
+- cluster migration
+- data backup and storage
+- authentication issues
+- export issues
+- upgrade/deployment issues
+- process instance issues
+- technical complexity
+- data processing issues
+- data integrity
+- disaster recovery setup
+- permission issues
+- data recovery issues
+- disaster recovery
+- api response inconsistencies
+- backup failures
+- infrastructure failures
+- azure documentation issue
+- backend errors
+- deployment failures
+- cloud deployment
+- storage limitation
+- backup and recovery complexity
+- update data integrity
+- disk corruption
+- component configuration issues
+- network storage issues
+- performance implications
+- performance optimization
+- zeebe exporter issues
+- deployment complexity

@@ -57,9 +57,9 @@ def clean_data(data: pd.DataFrame) -> pd.DataFrame:
         pd.DataFrame: Cleaned data.
     """
     if "description" not in data.columns:
-        raise ValueError("DataFrame must contain a 'description' column")
+        raise ValueError("DataFrame must contain a 'description' column", data.columns)
     
-    logging.info("Starting data cleaning process.")
+    logging.info(f"Starting data cleaning process. {len(data)}")
     data["description"] = data["description"].apply(clean_text)
     data.dropna(subset=["description"], inplace=True)  # Remove rows with empty communication
     data.reset_index(drop=True, inplace=True)

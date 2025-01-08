@@ -1,5 +1,6 @@
 import yaml
 import logging
+import re
 from dotenv import load_dotenv
 from pathlib import Path
 from typing import List, Dict
@@ -75,7 +76,7 @@ def update_problem_types(config):
     
     # Connect to MongoDB
     db = connect_to_mongo(config["mongodb"]["uri"], config["mongodb"]["database"])
-    records = load_collection(db, config["mongodb"]["processed_collection"], query = { "problem_type": { "$ne": "unknown" } })
+    records = load_collection(db, config["mongodb"]["processed_collection"])
     
     for description in records["description"].tolist():
         new_problem_type = analyze_description(description, config["prompts"]["problem_type"])
@@ -83,10 +84,16 @@ def update_problem_types(config):
         # keep new issue types in a list and update taxonomy.yaml with new issue types
         new_problem_type = new_problem_type.strip()
         if new_problem_type.lower() not in [ptype.lower() for ptype in config["taxonomy"]["problem_types"]]:
-            config["taxonomy"]["problem_types"].append(new_problem_type)
-            with open(config["paths"]["taxonomy"], 'w') as f:
-                yaml.dump(config["taxonomy"], f)
-                logging.info(f"New problem type added: {new_problem_type}")
+            new_problem_type = new_problem_type.split('\n', 1)[0].strip().lower()
+            cleaned_text = re.sub(r"[.\[\]\']", "", new_problem_type)
+
+            if cleaned_text not in config["taxonomy"]["problem_types"]:
+                config["taxonomy"]["problem_types"].append(cleaned_text)
+
+                with open(config["paths"]["taxonomy"], 'w') as f:
+                    yaml.dump(config["taxonomy"], f)
+                    logging.info(f"New problem type added: {cleaned_text}")
+                    config=load_configuration()
 
 
     logging.info("Problem type update completed.")

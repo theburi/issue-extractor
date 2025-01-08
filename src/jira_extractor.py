@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 import time
 from pymongo import MongoClient
 
-CUSTOMER_CIDS = ["commerzbank_ag_2", "rbs", "optum_3", "jp_morgan_chase", "bank_of_new_york_mellon_1", "deutsche_telekom_ag", "walmart_inc_", "desjardins_group", "shutterfly", "lpl_financial_llc_1", "sdc_1", "banco_montepio_1"]  # List of customer IDs
+CUSTOMER_CIDS = []  # List of customer IDs
 
 # Load environment variables
 load_dotenv()
@@ -38,7 +38,7 @@ def extract_issue_data(issue):
         # Extract comments as a list of dictionaries
         comments = [
             {
-                "author": comment.author.displayName,
+                "author": comment.author.displayName if hasattr(comment, "author") else None,
                 "body": re.sub(r"\[~[^\]]+\]", "[email]", comment.body),
                 "created": comment.created if hasattr(comment, "created") else None,
             }
@@ -104,20 +104,21 @@ if __name__ == "__main__":
     
     cid = 'commerzbank_ag_2'
     issues_df=''
-    for cid in CUSTOMER_CIDS:
-        jql_query = f'cid ~ {cid} and component in (C8-SM, C8-Distribution, C8-Zeebe, C8-Console)'
-        issues_df = extract_issues(jql_query)  
-        if not issues_df.empty:
-            for _, issue in issues_df.iterrows():
-                # Convert issue data to a dictionary
-                issue_data = issue.to_dict()
+    # for cid in CUSTOMER_CIDS:
+    jql_query = f'cid ~ {cid} and component in (C8-SM, C8-Distribution, C8-Zeebe, C8-Console)'
+    jql_query = f'text ~ backup and project = Support'
+    issues_df = extract_issues(jql_query)  
+    if not issues_df.empty:
+        for _, issue in issues_df.iterrows():
+            # Convert issue data to a dictionary
+            issue_data = issue.to_dict()
 
-                # Upsert each issue into MongoDB
-                collection.update_one(
-                    {'key': issue_data['key']},  # Match issue by key
-                    {'$set': issue_data},  # Update fields with new data
-                    upsert=True  # Insert if it doesn't exist
-                )
-            logging.info(f"Upserted {len(issues_df)} issues into MongoDB for CID: {cid}.")
-        else:
-            logging.info(f"No issues found for CID: {cid}.")
+            # Upsert each issue into MongoDB
+            collection.update_one(
+                {'key': issue_data['key']},  # Match issue by key
+                {'$set': issue_data},  # Update fields with new data
+                upsert=True  # Insert if it doesn't exist
+            )
+        logging.info(f"Upserted {len(issues_df)} issues into MongoDB for CID: {cid}.")
+    else:
+        logging.info(f"No issues found for CID: {cid}.")

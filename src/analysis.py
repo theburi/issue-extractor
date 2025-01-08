@@ -3,6 +3,7 @@ from langchain_core.prompts import PromptTemplate
 import pandas as pd
 from collections import Counter
 import logging
+from typing import List, Dict
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -71,14 +72,16 @@ def problem_frequency_analysis(data: pd.DataFrame) -> pd.DataFrame:
         pd.DataFrame: DataFrame with problems and their frequencies.
     """
     print (data.columns)
-    if "problem_types" not in data.columns:
-        raise ValueError("DataFrame must contain a 'problem_types' column")
+    if "problem_type" not in data.columns:
+        raise ValueError("DataFrame must contain a 'problem_type' column")
     
     logging.info("Starting problem frequency analysis.")
-    problem_list = data["problem_types"].explode()  # Flatten list of problems into rows
-    problem_counts = Counter(problem_list)
-    frequency_df = pd.DataFrame(problem_counts.items(), columns=["problem_types", "frequency"])
-    frequency_df.sort_values(by="frequency", ascending=False, inplace=True)
+    frequency_df =  (
+        data
+        .groupby(["cluster_id", "problem_type"], as_index=False)["frequency"]
+        .sum()
+    )
+    frequency_df.sort_values(by=["cluster_id", "frequency"], ascending=False, inplace=True)
     logging.info("Problem frequency analysis completed.")
     return frequency_df
 
@@ -103,3 +106,44 @@ def analyze_problem_trends(data: pd.DataFrame, date_column: str = "processed_at"
     trends = exploded_data.groupby(["date", "problems"]).size().reset_index(name="frequency")
     logging.info("Problem trend analysis completed.")
     return trends
+
+def generate_cluster_summary(clustered_problems: Dict[int, List[Dict[str, str]]], llm, config) -> Dict[int, str]:
+    """
+    Generate concise summaries for each cluster using LangChain.
+
+    Args:
+        clustered_problems (Dict[int, List[Dict[str, str]]]): Clustered problems data.
+        llm (OpenAI): LangChain LLM instance.
+
+    Returns:
+        Dict[int, str]: A dictionary where keys are cluster IDs and values are summaries.
+    """
+    logging.info("Generating summaries for each cluster.")
+    summaries = {}
+
+
+    llm = setup_llm(config, max_tokens=200)
+
+
+    for cluster_id, problems in clustered_problems.items():
+        descriptions = "\n".join([problem["description"] for problem in problems])
+        print("Number of problems in cluster", cluster_id, ":", len(problems))
+        try:
+            prompt = PromptTemplate(
+                template=config["prompts"]["generate_cluster_summary"],
+                input_variables=["descriptions"]
+                )
+            chain = prompt | llm
+            results = chain.invoke({
+                "descriptions": descriptions
+                })
+            summaries[cluster_id] = results.strip()
+            logging.info(f"Summary for cluster {cluster_id}: {results.strip()}")
+        except Exception as e:
+            logging.error(f"Failed to generate summary for cluster {cluster_id}: {e}")
+            summaries[cluster_id] = "Error in generating summary."
+
+
+
+    logging.info("Cluster summaries generated successfully.")
+    return summaries

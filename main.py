@@ -17,6 +17,8 @@ from src.problem_extraction import standardize_problems
 from src.analysis import problem_frequency_analysis, generate_cluster_summary
 from src.reporting import generate_enhanced_report, generate_problem_report
 from src.llm_utils import parse_llm_output, setup_llm, setup_embeddings
+from sklearn.metrics import pairwise_distances_argmin_min
+from sklearn.metrics import silhouette_score
 from sklearn.cluster import KMeans
 import numpy as np
 import pandas as pd
@@ -66,18 +68,57 @@ def create_vector_store(documents: List, embeddings) -> Chroma:
         persist_directory="./data/vectorstore"
     )
 
+def assess_optimal_n_clusters(embeddings: List[np.ndarray], max_clusters: int = 10) -> int:
+    """
+    Assess the optimal number of clusters using the silhouette score.
+
+    Args:
+        embeddings (List[np.ndarray]): List of semantic embeddings for problems.
+        max_clusters (int): Maximum number of clusters to evaluate.
+
+    Returns:
+        int: Optimal number of clusters.
+    """
+    logging.info("Assessing the optimal number of clusters.")
+    best_n_clusters = 2
+    best_score = -1
+
+    for n_clusters in range(2, max_clusters + 1):
+        kmeans = KMeans(n_clusters=n_clusters, random_state=42)
+        cluster_labels = kmeans.fit_predict(embeddings)
+        score = silhouette_score(embeddings, cluster_labels)
+        logging.info(f"Silhouette score for {n_clusters} clusters: {score}")
+
+        if score > best_score:
+            best_n_clusters = n_clusters
+            best_score = score
+
+    logging.info(f"Optimal number of clusters: {best_n_clusters} with silhouette score: {best_score}")
+    return best_n_clusters
+
 def semantic_clustering(
     problem_rows: List[Dict[str, str]],
     embeddings: List[np.ndarray],
-    n_clusters: int = 5
+    n_clusters: int = 5,
+    outlier_threshold: float = 2.0
 ) -> Dict[int, List[Dict[str, str]]]:
     """Cluster problems based on their semantic embeddings."""
     kmeans = KMeans(n_clusters=n_clusters, random_state=42)
     clusters = kmeans.fit_predict(embeddings)
     
+    # Calculate distances to cluster centers
+    _, distances = pairwise_distances_argmin_min(embeddings, kmeans.cluster_centers_)
+
     # Create a dictionary for each cluster
     clustered_problems = {i: [] for i in range(n_clusters)}
-    
+
+    # Assign problems to clusters if within the outlier threshold
+    for row, cluster_id, distance in zip(problem_rows, clusters, distances):
+        if distance <= outlier_threshold:
+            clustered_problems[cluster_id].append(row)
+        else:
+            logging.warning(f"Excluding outlier: {row['description']} (distance: {distance})")
+
     # 'clusters' aligns with 'problem_rows' index by index
     for row, cluster_id in zip(problem_rows, clusters):
         # Append the entire row dict, which includes description + problem_type
@@ -201,11 +242,18 @@ def main():
 
             # Generate embeddings for the descriptions
             problem_embeddings = embeddings.embed_documents(descriptions_only)
+
+            # Assess optimal number of clusters
+            optimal_n_clusters = assess_optimal_n_clusters(
+                embeddings=problem_embeddings,
+                max_clusters=config["clustering"]["max_clusters"]
+            )
+
             # Perform semantic clustering on the dictionaries
             clustered_problems = semantic_clustering(
                 problem_rows=standardized_problem_rows,
                 embeddings=problem_embeddings,
-                n_clusters=config["clustering"]["n_clusters"]
+                n_clusters=optimal_n_clusters
             )
             # Preprocess clustered problems
             clustered_problems_df = preprocess_clustered_problems(clustered_problems)
@@ -235,15 +283,6 @@ def main():
         
         logging.info(f"Analysis complete - Report available at {output_path}")
         
-        # from sklearn.decomposition import PCA
-        # import matplotlib.pyplot as plt
-
-        # pca = PCA(n_components=2)
-        # reduced_embeddings = pca.fit_transform(problem_embeddings)
-        # # Each point in 'reduced_embeddings' gets a color based on its cluster label
-        # plt.scatter(reduced_embeddings[:, 0], reduced_embeddings[:, 1], c="blue")
-        # plt.show()
-
         return True
         
     except Exception as e:

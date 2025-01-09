@@ -15,7 +15,7 @@ embeddings:
 
 clustering:
   algorithm: "kmeans"
-  n_clusters: 15
+  max_clusters: 20
 
 prompts:
   version: 2

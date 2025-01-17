@@ -1,9 +1,11 @@
+import yaml
 import logging
 import shutil
 from pathlib import Path
 from typing import List, Dict
 from dotenv import load_dotenv
-import argparse  # Added for command-line argument parsing
+import argparse
+from flask import Flask, request, jsonify  # Added for Flask API
 
 from langchain.chains import LLMChain
 from langchain_core.prompts import PromptTemplate
@@ -30,6 +32,8 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
+
+app = Flask(__name__)  # Initialize Flask app
 
 def create_vector_store(documents: List, embeddings) -> Chroma:
     # Convert each string document into a Document object
@@ -209,7 +213,29 @@ def process_and_store_problems(cleaned_data, vector_store, llm, config, db):
     return standardized_problems
 
 
-def main():
+@app.route('/start', methods=['POST'])
+def start_processing():
+    stage = request.json.get('stage', 1)
+    try:
+        result = main(stage)
+        return jsonify({"status": "success", "result": result}), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/config', methods=['GET', 'POST'])
+def manage_config():
+    config_path = Path("./config/config.yaml")
+    if request.method == 'GET':
+        with open(config_path, 'r') as f:
+            config = yaml.safe_load(f)
+        return jsonify(config), 200
+    elif request.method == 'POST':
+        new_config = request.json
+        with open(config_path, 'w') as f:
+            yaml.safe_dump(new_config, f)
+        return jsonify({"status": "success"}), 200
+
+def main(stage):
     parser = argparse.ArgumentParser(description="Issue Extractor")
     parser.add_argument('--stage', type=int, required=True,
                         help='Stage number of the pipeline (e.g., 1, 2, 3)')
@@ -311,4 +337,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    app.run(debug=True)

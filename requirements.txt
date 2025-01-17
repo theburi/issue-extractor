@@ -20,3 +20,4 @@ pandas
 pymongo
 langchain-ollama
 langchain_huggingface
+flask

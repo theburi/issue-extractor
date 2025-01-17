@@ -19,6 +19,7 @@ from src.problem_extraction import standardize_problems
 from src.analysis import problem_frequency_analysis, generate_cluster_summary
 from src.reporting import generate_enhanced_report, generate_problem_report
 from src.llm_utils import parse_llm_output, setup_llm, setup_embeddings
+from src.dashboard import dashboard_bp
 from src.utils import load_configuration
 from sklearn.metrics import pairwise_distances_argmin_min
 from sklearn.metrics import silhouette_score
@@ -212,8 +213,11 @@ def process_and_store_problems(cleaned_data, vector_store, llm, config, db):
                      config['mongodb']['processed_collection']}")
     return standardized_problems
 
+@app.route('/', methods=['GET'])
+def index():
+    return jsonify({"message": "Welcome to the Issue Extractor API!"}), 200
 
-@app.route('/start', methods=['POST'])
+@app.route('/api/start', methods=['POST'])
 def start_processing():
     stage = request.json.get('stage', 1)
     try:
@@ -222,8 +226,9 @@ def start_processing():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
-@app.route('/config', methods=['GET', 'POST'])
+@app.route('/api/config', methods=['GET', 'POST'])
 def manage_config():
+    logging.info ("Inside manage_config")
     config_path = Path("./config/config.yaml")
     if request.method == 'GET':
         with open(config_path, 'r') as f:
@@ -336,5 +341,8 @@ def main(stage):
         raise
 
 
+# Register the Blueprint
+app.register_blueprint(dashboard_bp)
+
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=True, port=4000)  # Change port to 5000

@@ -17,6 +17,7 @@ This web application serves as an interface for the existing issue analysis proj
     - **Home.js**: Home page component.
     - **Analysis.js**: Component for displaying analysis results.
     - **Report.js**: Component for displaying reports.
+    - **Config.js**: Component for editing configuration.
   - **services/**: API service for backend communication.
     - **api.js**: Functions for making API calls.
   - **App.js**: Integrates routing and page components.
@@ -48,6 +49,10 @@ npm start
 ```
 
 Open your browser and navigate to `http://localhost:3000` to view the application.
+
+## Editing Configuration
+
+To edit the configuration, navigate to the Config page in the web interface. This page allows you to update the configuration settings for the application.
 
 ## Contributing
 

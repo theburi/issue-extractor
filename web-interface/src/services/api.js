@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:5000/api'; // Update with your backend API URL
+const API_BASE_URL = '/api'; // Update to relative path
 
 export const fetchProblems = async () => {
     try {
@@ -41,3 +41,10 @@ export const fetchReports = async () => {
         throw error;
     }
 };
+
+const api = axios.create({
+    baseURL: '',
+});
+
+
+export default api;

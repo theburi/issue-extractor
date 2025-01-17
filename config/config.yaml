@@ -20,7 +20,9 @@ clustering:
 prompts:
   version: 2
   problem_extraction: |
-    You are an expert at analyzing customer issues. Your task is to identify problems described in the input text and return the result. Analyze the following text and extract key problem. Skip if this issue does not relate to problems with backup or restore.
+    You are an expert at analyzing customer issues. 
+    Your task is to identify problems described in the input text and return the result. 
+    Analyze the following text and extract key problem that relate to deployment of Camunda 8 on Azure.
     
     Customer case: {text}
     
@@ -28,7 +30,7 @@ prompts:
     {similar_cases}
     
     Instructions:
-    1. Identify specific backup or restor problem that issues was reported for
+    1. Identify specific problem that issues was reported for
     2. Note severity (High/Medium/Low)
     3. List potential impact
     
@@ -40,7 +42,11 @@ prompts:
       }}
 
   problem_type: |
-    You are an expert in analyzing customer issues. Your task is to identify the type of problem described in the input text below and assign it to one of the existing problem types provided. Always prioritize reusing the most relevant problem type from the existing list. Only create a new problem type if the input text cannot reasonably fit into any of the existing problem types. Reuse from the existing list if possible, or a new problem type if absolutely necessary If creating a new problem type, ensure it is concise, clear, and stated as a single string without any additional explanations, use less then 60 characters.
+    You are an expert in analyzing customer issues. 
+    Your task is to identify the type of problem described in the input text below and assign it to one of the existing problem types provided. 
+    Always prioritize reusing the most relevant problem type from the existing list. 
+    Only create a new problem type if the input text cannot reasonably fit into any of the existing problem types. 
+    Reuse from the existing list if possible, or a new problem type if absolutely necessary If creating a new problem type, ensure it is concise, clear, and stated as a single string without any additional explanations, use less then 60 characters.
 
     Input text:
     {text}
@@ -62,7 +68,7 @@ prompts:
   generate_cluster_summary: |
     You are an expert Product Manager specializing in customer issue analysis. Your task is to generate a single concise summary that synthesizes and captures the essence of the key issues described below.  Avoid listing individual problems; instead, combine them into one overarching and comprehensive statement. Make sure that summary returned is 100 words or less.
 
-    Descriptions of clustered problems: 
+    Descriptions of summarized problems:
     
     {descriptions}
    
@@ -80,6 +86,7 @@ reports:
   report_filename: "problem_analysis.html"
 
 issue-extractor:
+  jira_source: 'text ~ "Azure" and component in (C8-SM, C8-Distribution, C8-Zeebe, C8-Console) AND createdDate >= -365d'
   templates:
     - report_template.html
   data:

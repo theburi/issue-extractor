@@ -6,6 +6,7 @@ import logging
 from dotenv import load_dotenv
 import time
 from pymongo import MongoClient
+from utils import load_configuration
 
 CUSTOMER_CIDS = []  # List of customer IDs
 
@@ -101,12 +102,14 @@ def extract_issues(jql_query, start_at=0, max_results=100):
 
 # Main Execution Flow
 if __name__ == "__main__":
-    
-    cid = 'commerzbank_ag_2'
+    # Load configuration
+    config = load_configuration()
+    cid = ''
     issues_df=''
     # for cid in CUSTOMER_CIDS:
     jql_query = f'cid ~ {cid} and component in (C8-SM, C8-Distribution, C8-Zeebe, C8-Console)'
-    jql_query = f'text ~ backup and project = Support'
+    jql_query = f'text ~ dynatrace and project = Support'
+    jql_query = config["issue-extractor"]["jira_source"]
     issues_df = extract_issues(jql_query)  
     if not issues_df.empty:
         for _, issue in issues_df.iterrows():

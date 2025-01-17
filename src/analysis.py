@@ -128,6 +128,7 @@ def generate_cluster_summary(clustered_problems: Dict[int, List[Dict[str, str]]]
     for cluster_id, problems in clustered_problems.items():
         descriptions = "\n".join([problem["description"] for problem in problems])
         print("Number of problems in cluster", cluster_id, ":", len(problems))
+        
         try:
             prompt = PromptTemplate(
                 template=config["prompts"]["generate_cluster_summary"],
@@ -138,6 +139,9 @@ def generate_cluster_summary(clustered_problems: Dict[int, List[Dict[str, str]]]
                 "descriptions": descriptions
                 })
             summaries[cluster_id] = results.strip()
+            summaries["keys"] = [
+                problem["key"] for problem in problems
+            ]
             logging.info(f"Summary for cluster {cluster_id}: {results.strip()}")
         except Exception as e:
             logging.error(f"Failed to generate summary for cluster {cluster_id}: {e}")

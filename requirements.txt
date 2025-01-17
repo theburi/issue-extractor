@@ -15,3 +15,8 @@ jinja2
 langchain_ollama
 langchain_huggingface
 jira
+scikit-learn
+pandas
+pymongo
+langchain-ollama
+langchain_huggingface

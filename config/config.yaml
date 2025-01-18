@@ -4,6 +4,7 @@ mongodb:
   raw_collection: "issues"
   processed_collection: "processed_data"
   results_collection: "results"
+  projects_collection: "projects"
 
 llm:
   model_name: "llama3.2"  # Changed from llama3.2

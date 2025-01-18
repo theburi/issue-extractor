@@ -214,19 +214,6 @@ def process_and_store_problems(cleaned_data, vector_store, llm, config, db):
                      config['mongodb']['processed_collection']}")
     return standardized_problems
 
-@app.route('/api', methods=['GET'])
-def index():
-    return jsonify({"message": "Welcome to the Issue Extractor API!"}), 200
-
-@app.route('/api/start', methods=['POST'])
-def start_processing():
-    stage = request.json.get('stage', 1)
-    try:
-        result = main(stage)
-        return jsonify({"status": "success", "result": result}), 200
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
-
 @app.route('/api/config', methods=['GET', 'POST'])
 def manage_config():
     logging.info ("Inside manage_config")

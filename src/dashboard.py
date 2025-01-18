@@ -73,16 +73,4 @@ def start_analysis():
     
     return jsonify(report), 200
 
-@dashboard_bp.route('/api/projects', methods=['GET'])
-def get_projects():
-    projects = list(db.projects.find({}))
-    return jsonify(projects), 200
-
-@dashboard_bp.route('/api/projects', methods=['POST'])
-def create_project():
-    project_name = request.json.get('name')
-    new_project = {'name': project_name}
-    result = db.projects.insert_one(new_project)
-    new_project['_id'] = str(result.inserted_id)
-    return jsonify(new_project), 201
 

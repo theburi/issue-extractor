@@ -1,69 +1,35 @@
-import React, { useEffect, useState } from 'react';
-import axios from 'axios';
+import React from 'react';
+import { List, Datagrid, TextField, EditButton, DeleteButton, Edit, SimpleForm, TextInput } from 'react-admin';
+import ProjectDetails from './ProjectDetails'; // Import project details
+import { ProjectCreate } from './ProjectCreate';
+// import ProjectReports from './ProjectReports'; 
 
-const Projects = () => {
-    const [projects, setProjects] = useState([]);
-    const [selectedProject, setSelectedProject] = useState('');
-    const [newProject, setNewProject] = useState('');
+// List View
+export const ProjectsList = () => (
+    <List>
+        <Datagrid rowClick="edit">
+            <TextField source="id" label="ID" />
+            <TextField source="name" label="Project Name" />
+            <EditButton />
+            <DeleteButton />
+        </Datagrid>
+    </List>
+);
 
-    useEffect(() => {
-        const fetchProjects = async () => {
-            try {
-                const response = await axios.get('/api/projects');
-                setProjects(response.data);
-            } catch (error) {
-                console.error('Error fetching projects:', error);
-            }
-        };
-        fetchProjects();
-    }, []);
+// Edit View
+export const ProjectsEdit = () => (
+    <Edit>
+        <h2 >Project  </h2>
+        <SimpleForm>
+            <TextInput source="name" label="Project Name" fullWidth/>
+            <TextInput source="jira_source" label="Jira Source" fullWidth/>
+            <ProjectDetails />
+            {/* <ProjectReports />   */}
+        </SimpleForm>
+    </Edit>
+);
 
-    const handleProjectChange = (event) => {
-        setSelectedProject(event.target.value);
-    };
-
-    const handleNewProjectChange = (event) => {
-        setNewProject(event.target.value);
-    };
-
-    const handleNewProjectSubmit = async (event) => {
-        event.preventDefault();
-        try {
-            const response = await axios.post('/api/projects', { name: newProject });
-            setProjects([...projects, response.data]);
-            setNewProject('');
-        } catch (error) {
-            console.error('Error creating new project:', error);
-        }
-    };
-
-    return (
-        <div>
-            <h1>Projects</h1>
-            <div>
-                <label>
-                    Select Project:
-                    <select value={selectedProject} onChange={handleProjectChange}>
-                        <option value="">Select a project</option>
-                        {projects.map((project) => (
-                            <option key={project._id} value={project.name}>
-                                {project.name}
-                            </option>
-                        ))}
-                    </select>
-                </label>
-            </div>
-            <div>
-                <form onSubmit={handleNewProjectSubmit}>
-                    <label>
-                        Create New Project:
-                        <input type="text" value={newProject} onChange={handleNewProjectChange} />
-                    </label>
-                    <button type="submit">Create</button>
-                </form>
-            </div>
-        </div>
-    );
-};
-
-export default Projects;
+// Create View
+export const ProjectsCreate = () => (
+ <ProjectCreate />
+);

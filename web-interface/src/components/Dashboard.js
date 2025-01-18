@@ -7,14 +7,14 @@ const Dashboard = () => {
 
   useEffect(() => {
     // Fetch statistics for issues
-    axios.get('/issues/stats')
+    axios.get('api/issues/stats')
       .then(response => {
         console.log(response.data);
        setIssueStats(response.data);}) 
       .catch(error => console.error('Error fetching issue stats:', error));
 
     // Fetch statistics for processed issues
-    axios.get('/processed_issues/stats')
+    axios.get('api/processed_issues/stats')
       .then(response => setProcessedIssueStats(response.data))
       .catch(error => console.error('Error fetching processed issue stats:', error));
   }, []);

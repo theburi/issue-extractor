@@ -6,7 +6,7 @@ import logging
 from dotenv import load_dotenv
 import time
 from pymongo import MongoClient
-from utils import load_configuration
+from src.utils import load_configuration
 
 CUSTOMER_CIDS = []  # List of customer IDs
 

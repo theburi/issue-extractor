@@ -3,7 +3,7 @@ import Header from './Header';
 import Footer from './Footer';
 import { BrowserRouter as Router, Route, Switch } from 'react-router-dom';
 import Home from '../pages/Home';
-import Analysis from '../pages/Analysis';
+import Projects from '../pages/Project';
 import Report from '../pages/Report';
 import './App.css';
 
@@ -15,7 +15,7 @@ const App = () => {
                 <main>
                     <Switch>
                         <Route path="/" exact component={Home} />
-                        <Route path="/analysis" component={Analysis} />
+                        <Route path="/projects" component={Projects} />
                         <Route path="/report" component={Report} />
                     </Switch>
                 </main>

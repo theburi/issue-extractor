@@ -9,7 +9,6 @@ const Dashboard = () => {
     // Fetch statistics for issues
     axios.get('api/issues/stats')
       .then(response => {
-        console.log(response.data);
        setIssueStats(response.data);}) 
       .catch(error => console.error('Error fetching issue stats:', error));
 

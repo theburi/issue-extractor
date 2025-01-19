@@ -19,8 +19,11 @@ from src.problem_extraction import standardize_problems
 from src.analysis import problem_frequency_analysis, generate_cluster_summary
 from src.reporting import generate_enhanced_report, generate_problem_report
 from src.llm_utils import parse_llm_output, setup_llm, setup_embeddings
-from src.dashboard import dashboard_bp
-from src.projects import projects_bp
+from src.api.dashboard import dashboard_bp
+from src.api.projects import projects_bp
+from src.api.jira import jira_bp
+from src.api.config import config_bp
+from src.api.issues import issues_bp
 from src.utils import load_configuration
 from sklearn.metrics import pairwise_distances_argmin_min
 from sklearn.metrics import silhouette_score
@@ -214,20 +217,6 @@ def process_and_store_problems(cleaned_data, vector_store, llm, config, db):
                      config['mongodb']['processed_collection']}")
     return standardized_problems
 
-@app.route('/api/config', methods=['GET', 'POST'])
-def manage_config():
-    logging.info ("Inside manage_config")
-    config_path = Path("./config/config.yaml")
-    if request.method == 'GET':
-        with open(config_path, 'r') as f:
-            config = yaml.safe_load(f)
-        return jsonify(config), 200
-    elif request.method == 'POST':
-        new_config = request.json
-        with open(config_path, 'w') as f:
-            yaml.safe_dump(new_config, f)
-        return jsonify({"status": "success"}), 200
-
 def main(stage):
     parser = argparse.ArgumentParser(description="Issue Extractor")
     parser.add_argument('--stage', type=int, required=True,
@@ -332,6 +321,9 @@ def main(stage):
 # Register the Blueprint
 app.register_blueprint(dashboard_bp)
 app.register_blueprint(projects_bp)
+app.register_blueprint(jira_bp)
+app.register_blueprint(config_bp)
+app.register_blueprint(issues_bp)
 
 if __name__ == "__main__":
     app.run(debug=True, port=4000)  # Change port to 5000

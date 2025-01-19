@@ -52,7 +52,13 @@ def get_projects():
 def create_project():
     project_name = request.json.get('name')
     jira_source = request.json.get('jira_source')
-    new_project = {'name': project_name, 'jira_source': jira_source}
+    prompts = request.json.get('prompts', {})
+
+    new_project = {
+        'name': project_name, 
+        'jira_source': jira_source,
+        'prompts': prompts
+        }
     result = db.projects.insert_one(new_project)
     
 
@@ -60,7 +66,8 @@ def create_project():
     created_project = {
         'id': str(result.inserted_id),  # Use MongoDB's `_id` as `id`
         'name': project_name,
-        'jira_source': jira_source
+        'jira_source': jira_source,
+        'prompts': prompts
     }
 
     return jsonify(created_project), 201
@@ -128,7 +135,8 @@ def edit_project(project_id):
         if not update_data:
             logging.warning("No data provided for update.")
             return jsonify({'error': 'No data provided for update.'}), 400
-
+        update_data.pop('id', None)  # Remove the `id` field if present
+        
         # Update the project in the database
         result = db.projects.update_one(
             {'_id': ObjectId(project_id)},  # Match by ID

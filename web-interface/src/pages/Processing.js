@@ -9,6 +9,7 @@ const apiService = {
     fetchIssueCount: (projectId) => fetch(`/api/issues/count?project=${projectId}`).then(res => res.json()),
     fetchTaskStatus: (taskId) => fetch(`/api/jira/status/${taskId}`).then(res => res.json()),
     startExtraction: (projectId) => fetch(`/api/jira/extract?project=${projectId}`).then(res => res.json()),
+    fetchProcessStage: (projectId, stage) => fetch(`/api/process?project_id=${projectId}&stage=${stage}`).then(res => res.json()),
 };
 
 // Custom hook for task polling
@@ -39,6 +40,7 @@ const Processing = () => {
     const [loading, setLoading] = useState({
         projects: false,
         processing: false,
+        stageProcessing: false,
     });
     const [projects, setProjects] = useState([]);
     const [selectedProject, setSelectedProject] = useState('');
@@ -47,6 +49,8 @@ const Processing = () => {
         status: null,
         issueCount: null,
     });
+    const [selectedStage, setSelectedStage] = useState('');
+    const [stageResult, setStageResult] = useState(null);
     const notify = useNotify();
 
     // Projects fetch
@@ -115,6 +119,27 @@ const Processing = () => {
         }
     };
 
+    // Handle stage processing
+    const handleStageProcessing = async () => {
+        if (!selectedStage) {
+            notify('Please select a stage before processing', { type: 'warning' });
+            return;
+        }
+
+        setLoading(prev => ({ ...prev, stageProcessing: true }));
+        notify('Stage processing started', { type: 'info' });
+
+        try {
+            const data = await apiService.fetchProcessStage(selectedProject, selectedStage);
+            setStageResult(data);
+            notify('Stage processing completed', { type: 'info' });
+        } catch (error) {
+            notify('Failed to process stage', { type: 'error' });
+        } finally {
+            setLoading(prev => ({ ...prev, stageProcessing: false }));
+        }
+    };
+
     return (
         <Box m={2}>
             <Title title="Processing Page" />
@@ -154,7 +179,7 @@ const Processing = () => {
                     </Box>
                 ) : (
                     <Button
-                        label="Start Processing"
+                        label="Download JIRA issues"
                         onClick={handleButtonClick}
                         disabled={!selectedProject}
                     />
@@ -184,6 +209,39 @@ const Processing = () => {
                 ) : (
                     <p>Select a project to view the issue count.</p>
                 )}
+            </Box>
+            {/* New Process Stage Section */}
+            <Box display="flex" flexDirection="column" gap={2} mt={4}>
+                <h2>Process Stage</h2>
+                <SimpleForm toolbar={null}>
+                    <SelectInput
+                        source="stage"
+                        label="Select Stage"
+                        choices={[
+                            { id: '1', name: 'Stage 1' },
+                            { id: '2', name: 'Stage 2' },
+                        ]}
+                        optionText="name"
+                        optionValue="id"
+                        value={selectedStage}
+                        onChange={(event) => setSelectedStage(event.target.value)}
+                        fullWidth
+                    />
+                </SimpleForm>
+                {loading.stageProcessing ? (
+                    <Box display="flex" justifyContent="center" alignItems="center" mt={2}>
+                        <CircularProgress />
+                    </Box>
+                ) : (
+                    <Button
+                        label="Process JIRA issues with LLM"
+                        onClick={handleStageProcessing}
+                        disabled={!selectedStage}
+                    />
+                )}
+                <Box mt={2}>
+                    {stageResult && <p>Stage Result: {JSON.stringify(stageResult)}</p>}
+                </Box>
             </Box>
         </Box>
     );

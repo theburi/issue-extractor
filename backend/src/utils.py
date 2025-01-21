@@ -2,6 +2,7 @@ import logging
 import yaml
 from pathlib import Path
 from typing import List, Dict
+from bson import ObjectId
 from src.db.mongodb_client import connect_to_mongo
 
 def load_configuration(project_id=None) -> Dict:
@@ -29,7 +30,7 @@ def load_configuration(project_id=None) -> Dict:
             # Connect to MongoDB
             db = connect_to_mongo(
                 config["mongodb"]["uri"], config["mongodb"]["database"])
-            project = db[config["mongodb"]["projects_collection"]].find_one({'_id': project_id})
+            project = db[config["mongodb"]["projects_collection"]].find_one({'_id': ObjectId(project_id)})
             
             if project:
                 # Override jira_source and prompts if they exist in the project document

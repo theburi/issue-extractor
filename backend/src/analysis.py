@@ -137,16 +137,17 @@ def generate_cluster_summary(clustered_problems: Dict[int, List[Dict[str, str]]]
         Dict[int, str]: A dictionary where keys are cluster IDs and values are summaries.
     """
     logging.info("Generating summaries for each cluster.")
-    summaries = {}
-
-
+    summaries = pd.DataFrame(columns=["cluster_id", "keys", "summary"])
     llm = setup_llm(config, max_tokens=200)
-
 
     for cluster_id, problems in clustered_problems.items():
         descriptions = "\n".join([problem["description"] for problem in problems])
         print("Number of problems in cluster", cluster_id, ":", len(problems))
-        
+        summary={}
+        summary["cluster_id"] = cluster_id
+        summary["keys"] = [
+            problem["key"] for problem in problems
+        ]
         try:
             prompt = PromptTemplate(
                 template=config["prompts"]["generate_cluster_summary"],
@@ -156,16 +157,14 @@ def generate_cluster_summary(clustered_problems: Dict[int, List[Dict[str, str]]]
             results = chain.invoke({
                 "descriptions": descriptions
                 })
-            summaries[cluster_id] = results.strip()
-            summaries["keys"] = [
-                problem["key"] for problem in problems
-            ]
-            logging.info(f"Summary for cluster {cluster_id}: {results.strip()}")
+            summary["summary"] = results.strip()
+
+            logging.info(f"Summary for cluster {cluster_id}:")
+            
         except Exception as e:
             logging.error(f"Failed to generate summary for cluster {cluster_id}: {e}")
-            summaries[cluster_id] = "Error in generating summary."
-
-
+            summary["summary"] = "Error in generating summary."
+        summaries.loc[len(summaries)] = summary
 
     logging.info("Cluster summaries generated successfully.")
     return summaries
@@ -285,14 +284,16 @@ def preprocess_clustered_problems(
     return pd.DataFrame(processed_data)
 
 
-def process_row(row, vector_store, llm, taxonomy, config, db):
+def process_row(row, vector_store, llm, taxonomy, config, db, projectId):
     """Process a single row of data."""
     try:
         # Check if the record already exists
 
         existing_record = db[config["mongodb"]["processed_collection"]].find_one(
             {
-                "key": row["key"], "version": config["prompts"]["version"], "problem_type": {"$ne": "unknown"}
+                "key": row["key"], 
+                "version": config["prompts"]["version"], 
+                "project_id": projectId
             }
         )
         if existing_record:
@@ -324,14 +325,14 @@ def process_row(row, vector_store, llm, taxonomy, config, db):
         return []
 
 
-def process_and_store_problems(cleaned_data, vector_store, llm, config, db):
+def process_and_store_problems(cleaned_data, vector_store, llm, config, db, projectId):
     standardized_problems = []
     for _, row in cleaned_data.iterrows():
         if 'key' not in row:
             logging.error(f"Missing 'key' in row: {row}")
             continue
         problems = process_row(row, vector_store, llm,
-                               config["taxonomy"], config, db)
+                               config["taxonomy"], config, db, projectId)
         for problem in problems:
             standardized_problems.extend(problem)
             db[config["mongodb"]["processed_collection"]].update_one(
@@ -339,7 +340,8 @@ def process_and_store_problems(cleaned_data, vector_store, llm, config, db):
                 {
                     "description": problem["description"], 
                     "key": problem["key"],
-                    "jira_source": config["issue-extractor"]["jira_source"]
+                    "jira_source": config["issue-extractor"]["jira_source"],
+                    "project_id": projectId
                 },
                 {"$set": problem},  # Update with the full problem document
                 upsert=True  # Insert if not found
@@ -378,12 +380,16 @@ def main_execution_flow(projectId, stage):
 
             # Process documents and extract problems
             standardized_problems = process_and_store_problems(
-                cleaned_data, vector_store, llm, config, db)
+                cleaned_data, vector_store, llm, config, db, projectId)
 
         if stage <= 2:
             # Load MongoDb Documents that were created in a previous code block to load all documents that exists in the collection
             standardized_problems = load_collection(
-                db, config["mongodb"]["processed_collection"], query={"jira_source": config["issue-extractor"]["jira_source"]})
+                db, 
+                config["mongodb"]["processed_collection"], 
+                query={"jira_source": config["issue-extractor"]["jira_source"],
+                       "project_id": projectId})
+            
             logging.info(f"Number of Loaded Documents: {
                          len(standardized_problems)}")
 
@@ -418,28 +424,17 @@ def main_execution_flow(projectId, stage):
             frequency = problem_frequency_analysis(clustered_problems_df)
 
             # Generate cluster summary report
-            summaries = generate_cluster_summary(
-                clustered_problems, llm, config)
-            # Convert summaries to a DataFrame for reporting or saving
-            summary_df = pd.DataFrame.from_dict(
-                summaries, orient='index', columns=['summary'])
+            summaries = generate_cluster_summary(clustered_problems, llm, config)
+
             # Save report in HTML format
-            summary_output_path = Path("./data/results/cluster_summaries.html")
-            summary_output_path.parent.mkdir(parents=True, exist_ok=True)
-            summary_df.to_html(summary_output_path)
 
-        logging.info(f"Cluster summaries saved at {summary_output_path}")
+            generate_enhanced_report(
+                frequency,
+                summaries,
+                projectId=projectId
+            )
 
-        # Generate enhanced HTML report
-        output_path = Path("./data/results/problem_report.html")
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        generate_enhanced_report(
-            frequency,
-            # vector_store,
-            output_path=str(output_path)
-        )
-
-        logging.info(f"Analysis complete - Report available at {output_path}")
+        logging.info(f"Analysis completed for project: {projectId}")
 
         return True
 

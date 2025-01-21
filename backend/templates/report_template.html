@@ -1,0 +1,18 @@
+<h1>Problem Analysis Report</h1>
+
+<div class="section">
+    <h2>Summary</h2>
+    <p>Total Problems: {{ data.total_problems }}</p>
+    <p>Total Customers: {{ data.total_customers }}</p>
+    {{data.summary | safe}}
+</div>
+
+<div class="section">
+    <h2>Problem Frequency</h2>
+    {{ data.problem_frequency | safe }}
+</div>
+
+<div class="section">
+    <h2>Customer Problems</h2>
+    {{ data.cluster_summary | safe }}
+</div>

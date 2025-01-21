@@ -10,6 +10,7 @@ from src.api.config import config_bp
 from src.api.issues import issues_bp
 from src.api.process import process_bp
 from src.utils import load_configuration
+from src.api.reports import reports_bp
 
 
 
@@ -29,6 +30,7 @@ app.register_blueprint(jira_bp)
 app.register_blueprint(config_bp)
 app.register_blueprint(issues_bp)
 app.register_blueprint(process_bp)
+app.register_blueprint(reports_bp)
 
 if __name__ == "__main__":
     app.run(debug=True, port=4000)  # Change port to 5000

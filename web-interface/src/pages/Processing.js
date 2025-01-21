@@ -1,30 +1,33 @@
 import React, { useState, useEffect } from 'react';
-import { useNotify, Title, Button, SimpleForm, SelectInput, TextField } from 'react-admin';
+import { useNotify, Title, Button, SimpleForm, SelectInput } from 'react-admin';
 import { Box } from '@mui/system';
 import CircularProgress from '@mui/material/CircularProgress';
+import DOMPurify from 'dompurify';
 
 // API service functions
 const apiService = {
-    fetchProjects: () => fetch('/api/projects').then(res => res.json()),
-    fetchIssueCount: (projectId) => fetch(`/api/issues/count?project=${projectId}`).then(res => res.json()),
-    fetchTaskStatus: (taskId) => fetch(`/api/jira/status/${taskId}`).then(res => res.json()),
-    startExtraction: (projectId) => fetch(`/api/jira/extract?project=${projectId}`).then(res => res.json()),
-    fetchProcessStage: (projectId, stage) => fetch(`/api/process?project_id=${projectId}&stage=${stage}`).then(res => res.json()),
+    fetchProjects: () => fetch('/api/projects').then((res) => res.json()),
+    fetchIssueCount: (projectId) => fetch(`/api/issues/count?project=${projectId}`).then((res) => res.json()),
+    fetchTaskStatus: (apiPath, taskId) => fetch(`${apiPath}/${taskId}`).then((res) => res.json()),
+    startExtraction: (projectId) => fetch(`/api/jira/extract?project=${projectId}`).then((res) => res.json()),
+    fetchProcessStage: (projectId, stage) =>
+        fetch(`/api/process?project_id=${projectId}&stage=${stage}`).then((res) => res.json()),
+    fetchReport: (projectId) => fetch(`/api/reports?projectid=${projectId}`).then((res) => res.json()),
 };
 
 // Custom hook for task polling
-const useTaskPolling = (taskId, onStatusChange) => {
+const useTaskPolling = (taskId, apiPath, onStatusChange) => {
     useEffect(() => {
-        if (!taskId) return;
+        if (!taskId || !apiPath) return;
 
         const pollInterval = setInterval(async () => {
             try {
-                const data = await apiService.fetchTaskStatus(taskId);
+                const data = await apiService.fetchTaskStatus(apiPath, taskId);
                 onStatusChange(data);
 
                 // Stop polling if the task is completed or failed
                 if (data.status === 'completed' || data.status === 'failed') {
-                    clearInterval(pollInterval);
+                    clearInterval(pollInterval);                    
                 }
             } catch (error) {
                 console.error('Polling error:', error);
@@ -32,8 +35,8 @@ const useTaskPolling = (taskId, onStatusChange) => {
             }
         }, 3000);
 
-        return () => clearInterval(pollInterval);
-    }, [taskId, onStatusChange]);
+        return () => clearInterval(pollInterval); // Cleanup on unmount or dependency change
+    }, [taskId, apiPath, onStatusChange]);
 };
 
 const Processing = () => {
@@ -44,99 +47,80 @@ const Processing = () => {
     });
     const [projects, setProjects] = useState([]);
     const [selectedProject, setSelectedProject] = useState('');
-    const [task, setTask] = useState({
-        id: null,
-        status: null,
-        issueCount: null,
-    });
+    const [jiraTask, setJiraTask] = useState({ id: null, status: null });
+    const [processTask, setProcessTask] = useState({ id: null, status: null });
     const [selectedStage, setSelectedStage] = useState('');
-    const [stageResult, setStageResult] = useState(null);
+    const [report, setReport] = useState(null); // Declare state for the report
+    
     const notify = useNotify();
 
-    // Projects fetch
+    // Fetch projects
     useEffect(() => {
         const loadProjects = async () => {
-            setLoading(prev => ({ ...prev, projects: true }));
+            setLoading((prev) => ({ ...prev, projects: true }));
             try {
                 const data = await apiService.fetchProjects();
                 setProjects(data);
             } catch (error) {
                 notify('Failed to load projects', { type: 'error' });
             } finally {
-                setLoading(prev => ({ ...prev, projects: false }));
+                setLoading((prev) => ({ ...prev, projects: false }));
             }
         };
         loadProjects();
     }, [notify]);
 
-    // Issue count fetch
-    useEffect(() => {
-        if (!selectedProject) {
-            setTask(prev => ({ ...prev, issueCount: null }));
-            return;
-        }
-
-        const loadIssueCount = async () => {
-            try {
-                const data = await apiService.fetchIssueCount(selectedProject);
-                setTask(prev => ({ ...prev, issueCount: data.count || 0 }));
-            } catch (error) {
-                notify('Failed to fetch issue count', { type: 'error' });
-            }
-        };
-        loadIssueCount();
-    }, [selectedProject, notify]);
-
-    // Task status polling
-    useTaskPolling(task.id, (statusData) => {
-        setTask(prev => ({ ...prev, status: statusData }));
-        if (statusData.status === 'completed') {
-            setLoading(prev => ({ ...prev, processing: false }));
-            setTask(prev => ({ ...prev, id: null }));
-            notify('Processing completed', { type: 'info' });
-        } else if (statusData.status === 'failed') {
-            setLoading(prev => ({ ...prev, processing: false }));
-            setTask(prev => ({ ...prev, id: null }));
-            notify(`Processing failed: ${statusData.result}`, { type: 'error' });
+    // Poll JIRA task status
+    useTaskPolling(jiraTask.id, '/api/jira/status', (statusData) => {
+        setJiraTask((prev) => ({ ...prev, status: statusData }));
+        if (statusData.status === 'completed' || statusData.status === 'failed') {
+            setJiraTask((prev) => ({ ...prev, id: null }));
+            setLoading((prev) => ({ ...prev, processing: false }));
         }
     });
 
-    const handleButtonClick = async () => {
+    // Poll Process task status
+    useTaskPolling(processTask.id, '/api/process/status', (statusData) => {
+        setProcessTask((prev) => ({ ...prev, status: statusData }));
+        if (statusData.status === 'completed' || statusData.status === 'failed') {
+            setProcessTask((prev) => ({ ...prev, id: null }));
+            setLoading((prev) => ({ ...prev, stageProcessing: false }));
+        }
+    });
+
+    const handleJiraExtraction = async () => {
         if (!selectedProject) {
             notify('Please select a project before processing', { type: 'warning' });
             return;
         }
 
-        setLoading(prev => ({ ...prev, processing: true }));
+        setLoading((prev) => ({ ...prev, processing: true }));
         notify('Processing started', { type: 'info' });
 
         try {
             const data = await apiService.startExtraction(selectedProject);
-            setTask(prev => ({ ...prev, id: data.task_id, status: null }));
+            setJiraTask({ id: data.task_id, status: null });
         } catch (error) {
-            setLoading(prev => ({ ...prev, processing: false }));
+            setLoading((prev) => ({ ...prev, processing: false }));
             notify('Failed to start processing', { type: 'error' });
         }
     };
 
-    // Handle stage processing
     const handleStageProcessing = async () => {
         if (!selectedStage) {
             notify('Please select a stage before processing', { type: 'warning' });
             return;
         }
 
-        setLoading(prev => ({ ...prev, stageProcessing: true }));
+        setLoading((prev) => ({ ...prev, stageProcessing: true }));
         notify('Stage processing started', { type: 'info' });
 
         try {
             const data = await apiService.fetchProcessStage(selectedProject, selectedStage);
-            setStageResult(data);
-            notify('Stage processing completed', { type: 'info' });
+            setProcessTask({ id: data.task_id, status: null });
         } catch (error) {
+            setLoading((prev) => ({ ...prev, stageProcessing: false }));
             notify('Failed to process stage', { type: 'error' });
-        } finally {
-            setLoading(prev => ({ ...prev, stageProcessing: false }));
         }
     };
 
@@ -144,74 +128,36 @@ const Processing = () => {
         <Box m={2}>
             <Title title="Processing Page" />
 
+            {/* JIRA Extraction Section */}
             <Box display="flex" flexDirection="column" gap={2}>
-                <h2>Jira Extraction</h2>
+                <h2>JIRA Extraction</h2>
                 <SimpleForm toolbar={null}>
-                {/* Dropdown to select project */}
-                <SelectInput
-                    source="project"
-                    label="Select Project"
-                    choices={projects.map((project) => ({
-                        id: project.id, // Adjust if your API uses a different key for ID
-                        name: project.name, // Adjust if your API uses a different key for Name
-                    }))}
-                    optionText="name"
-                    optionValue="id"
-                    value={selectedProject}
-                    onChange={(event) => setSelectedProject(event.target.value)}
-                    fullWidth
-                />
-                {/* Display selected project's source */}                 
-                {selectedProject && (
-                    <Box mt={2}>
-                        <strong>JIRA Query:</strong>{' '}
-                        <TextField
-                            source="jira_source"
-                            label="JIRA Query"
-                            record={{ jira_source: projects.find((project) => project.id === selectedProject)?.jira_source || "No source available" }}
-                        />
-                    </Box>
-                )}
+                    <SelectInput
+                        source="project"
+                        label="Select Project"
+                        choices={projects.map((project) => ({
+                            id: project.id,
+                            name: project.name,
+                        }))}
+                        value={selectedProject}
+                        onChange={(event) => setSelectedProject(event.target.value)}
+                        fullWidth
+                    />
                 </SimpleForm>
                 {loading.processing ? (
-                    <Box display="flex" justifyContent="center" alignItems="center" mt={2}>
-                        <CircularProgress />
-                    </Box>
+                    <CircularProgress />
                 ) : (
                     <Button
-                        label="Download JIRA issues"
-                        onClick={handleButtonClick}
+                        label="Start Extraction"
+                        onClick={handleJiraExtraction}
                         disabled={!selectedProject}
                     />
                 )}
-                            {/* Show task status */}
-                <Box mt={2}>
-                    {task.status ? (
-                        <p>
-                            Task Status: {task.status.status}
-                            {task.status.result && (
-                                <>
-                                    <br />
-                                    Result: {task.status.result}
-                                </>
-                            )}
-                        </p>
-                    ) : (
-                        task.id && <p>Checking task status...</p>
-                    )}
-                </Box>
+                {jiraTask.status && <p>Task Status: {jiraTask.status.status}</p>}
             </Box>
-            
-            {/* Display the number of issues for the selected project */}
-            <Box mt={2}>
-                {task.issueCount !== null ? (
-                    <p>Number of issues for this project: {task.issueCount}</p>
-                ) : (
-                    <p>Select a project to view the issue count.</p>
-                )}
-            </Box>
-            {/* New Process Stage Section */}
-            <Box display="flex" flexDirection="column" gap={2} mt={4}>
+
+            {/* Process Stage Section */}
+            <Box mt={4}>
                 <h2>Process Stage</h2>
                 <SimpleForm toolbar={null}>
                     <SelectInput
@@ -221,27 +167,52 @@ const Processing = () => {
                             { id: '1', name: 'Stage 1' },
                             { id: '2', name: 'Stage 2' },
                         ]}
-                        optionText="name"
-                        optionValue="id"
                         value={selectedStage}
                         onChange={(event) => setSelectedStage(event.target.value)}
                         fullWidth
                     />
                 </SimpleForm>
                 {loading.stageProcessing ? (
-                    <Box display="flex" justifyContent="center" alignItems="center" mt={2}>
-                        <CircularProgress />
-                    </Box>
+                    <CircularProgress />
                 ) : (
                     <Button
-                        label="Process JIRA issues with LLM"
+                        label="Start Stage Processing"
                         onClick={handleStageProcessing}
                         disabled={!selectedStage}
                     />
                 )}
-                <Box mt={2}>
-                    {stageResult && <p>Stage Result: {JSON.stringify(stageResult)}</p>}
-                </Box>
+                {processTask.status && <p>Task Status: {processTask.status.status}</p>}
+                {/* {stageResult && <p>Stage Result: {JSON.stringify(stageResult)}</p>} */}
+            </Box>
+            {/* Add generated report taking from api/reports?projectid if available */}
+        
+            <Box mt={4}>
+                <h2>Generated Report</h2>
+                {selectedProject && (
+                    <Button
+                        label="Fetch Report"
+                        onClick={async () => {
+                            setLoading((prev) => ({ ...prev, report: true }));
+                            try {
+                                const reportData = await apiService.fetchReport(selectedProject);
+                                notify('Report fetched successfully', { type: 'info' });
+                                setReport(reportData);
+                            } catch (error) {
+                                notify('Failed to fetch report', { type: 'error' });
+                            } finally {
+                                setLoading((prev) => ({ ...prev, report: false }));
+                            }
+                        }}
+                        disabled={loading.report}
+                    />
+                )}
+                {loading.report && <CircularProgress />}
+                {report && (
+                    <Box mt={2}
+                        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(report.report_html.replace(/\n/g, '')) }} >
+                        
+                    </Box>
+                )}
             </Box>
         </Box>
     );

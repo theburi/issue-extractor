@@ -3,8 +3,14 @@ import matplotlib.pyplot as plt
 import os
 import logging
 from typing import Dict, List
-from pathlib import Path
 from jinja2 import Environment, FileSystemLoader
+from src.db.mongodb_client import connect_to_mongo, load_collection
+from src.utils import load_configuration
+
+config=load_configuration()
+# Connect to MongoDB
+db = connect_to_mongo(
+    config["mongodb"]["uri"], config["mongodb"]["database"])
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -77,8 +83,8 @@ def visualize_trends(trend_data: pd.DataFrame, output_path: str):
 
 def generate_enhanced_report(
     frequency_data: Dict,
-    # problem_customer_map: Dict,
-    output_path: str
+    summaries: pd.DataFrame,
+    projectId: str
 ) -> None:
     """Generate enhanced HTML report with problem analysis."""
     
@@ -87,6 +93,7 @@ def generate_enhanced_report(
         "problem_frequency": pd.DataFrame(frequency_data).to_html(),
         # "cluster_id": pd.DataFrame(problem_customer_map).to_html(),
         "total_problems": len(frequency_data),
+        "cluster_summary": summaries.to_html(),
         # "total_customers": len(set(problem_customer_map.values()))
     }
     
@@ -96,7 +103,19 @@ def generate_enhanced_report(
     
     # Generate HTML
     html_content = template.render(data=report_data)
-    
-    # Save report
-    output_file = Path(output_path)
-    output_file.write_text(html_content)
+
+    # Save report to MongoDB
+    try:
+        report_document = {
+            "project_id": projectId,
+            "report_html": html_content,
+            "report_data": report_data
+        }
+        db[config["mongodb"]["reports_collection"]].update_one(
+            {"project_id": projectId},  # Query to check if the report exists
+            {"$set": report_document},  # Updates the existing document or sets the new one
+            upsert=True  # Create the document if it doesn't exist
+        )       
+        logging.info(f"Report for project {projectId} saved to MongoDB in 'reports' collection.")
+    except Exception as e:
+        logging.error(f"Failed to save report to MongoDB: {str(e)}")

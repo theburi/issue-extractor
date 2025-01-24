@@ -18,6 +18,11 @@ const CustomMenu = () => (
             primaryText="Processing"
             leftIcon={<Settings />}
         />
+        <MenuItemLink
+            to="/feature"
+            primaryText="Feature Request"
+            leftIcon={<Settings />}
+        />
     </Menu>
 );
 

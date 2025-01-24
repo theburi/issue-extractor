@@ -9,8 +9,12 @@ mongodb:
 
 llm:
   model_name: "deepseek-r1:14b"  # Changed from llama3.2
-  temperature: 0.1
+  # model_name: "deepseek-r1:8b"  # Changed from llama3.2
+  model_name_small: "deepseek-r1:8b"  
+  temperature: 0.5
   max_tokens: 2000
+  # base_url: "http://192.168.0.25:11434"
+  base_url: "http://127.0.0.1:11434"
 
 embeddings:
   model_name: "all-MiniLM-L6-v2"
@@ -26,11 +30,11 @@ prompts:
     Your task is to identify problems described in the input text and return the result. 
     Analyze the following text and extract key problem that relate to deployment of Camunda 8 on Azure.
     
-    Customer case: {text}
-    
-    Similar cases:
-    {similar_cases}
-    
+    Customer case: 
+    "
+    {text}
+    "
+
     Instructions:
     1. Identify specific problem that issues was reported for
     2. Note severity (High/Medium/Low)
@@ -73,6 +77,12 @@ prompts:
     Descriptions of summarized problems:
     
     {descriptions}
+  check_relevance: |
+    System Instruction: You are a helpful AI Product Manager. You must only reply with "YES" "NO" or "I DON’T KNOW""
+
+    User Instruction: I will provide a text that describes a customer issue. Determine if this text indicates a problem specifically related to customer using AWS or Amazon services.
+
+    {text}
    
 paths:
   taxonomy: "./config/taxonomy.yaml"

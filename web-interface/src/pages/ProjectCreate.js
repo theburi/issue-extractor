@@ -61,6 +61,13 @@ export const ProjectCreate = () => {
                     fullWidth
                     multiline
                 />
+                <TextInput
+                    source="prompts.check_relevance"
+                    label="Check Relavance of the Issues"
+                    defaultValue={prompts.check_relevance}
+                    fullWidth
+                    multiline
+                />
             </SimpleForm>
         </Create>
     );

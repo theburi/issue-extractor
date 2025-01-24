@@ -33,7 +33,7 @@ const useTaskPolling = (taskId, apiPath, onStatusChange) => {
                 console.error('Polling error:', error);
                 clearInterval(pollInterval);
             }
-        }, 3000);
+        }, 10000);
 
         return () => clearInterval(pollInterval); // Cleanup on unmount or dependency change
     }, [taskId, apiPath, onStatusChange]);
@@ -155,65 +155,65 @@ const Processing = () => {
                 )}
                 {jiraTask.status && <p>Task Status: {jiraTask.status.status}</p>}
             </Box>
-
-            {/* Process Stage Section */}
-            <Box mt={4}>
-                <h2>Process Stage</h2>
-                <SimpleForm toolbar={null}>
-                    <SelectInput
-                        source="stage"
-                        label="Select Stage"
-                        choices={[
-                            { id: '1', name: 'Stage 1' },
-                            { id: '2', name: 'Stage 2' },
-                        ]}
-                        value={selectedStage}
-                        onChange={(event) => setSelectedStage(event.target.value)}
-                        fullWidth
-                    />
-                </SimpleForm>
-                {loading.stageProcessing ? (
-                    <CircularProgress />
-                ) : (
-                    <Button
-                        label="Start Stage Processing"
-                        onClick={handleStageProcessing}
-                        disabled={!selectedStage}
-                    />
-                )}
-                {processTask.status && <p>Task Status: {processTask.status.status}</p>}
-                {/* {stageResult && <p>Stage Result: {JSON.stringify(stageResult)}</p>} */}
-            </Box>
-            {/* Add generated report taking from api/reports?projectid if available */}
-        
-            <Box mt={4}>
-                <h2>Generated Report</h2>
-                {selectedProject && (
-                    <Button
-                        label="Fetch Report"
-                        onClick={async () => {
-                            setLoading((prev) => ({ ...prev, report: true }));
-                            try {
-                                const reportData = await apiService.fetchReport(selectedProject);
-                                notify('Report fetched successfully', { type: 'info' });
-                                setReport(reportData);
-                            } catch (error) {
-                                notify('Failed to fetch report', { type: 'error' });
-                            } finally {
-                                setLoading((prev) => ({ ...prev, report: false }));
-                            }
-                        }}
-                        disabled={loading.report}
-                    />
-                )}
-                {loading.report && <CircularProgress />}
-                {report && (
-                    <Box mt={2}
-                        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(report.report_html.replace(/\n/g, '')) }} >
-                        
+            {selectedProject && (
+            <Box>
+                {/* Process Stage Section */}
+                <Box mt={4}>
+                    <h2>Process Stage</h2>
+                    <Box display="flex" gap={2}>
+                        <Button
+                            label="Start Stage 1"
+                            onClick={() => {
+                                setSelectedStage('1');
+                                handleStageProcessing();
+                            }}
+                            disabled={loading.stageProcessing}
+                        />
+                        <Button
+                            label="Start Stage 2"
+                            onClick={() => {
+                                setSelectedStage('2');
+                                handleStageProcessing();
+                            }}
+                            disabled={loading.stageProcessing}
+                        />
                     </Box>
-                )}
+
+                    {loading.stageProcessing && <CircularProgress />}
+                    {processTask.status && <p>Task Status: {processTask.status.status}</p>}                
+                </Box>
+                {/* Add generated report taking from api/reports?projectid if available */}
+            
+                <Box mt={4}>
+                    <h2>Generated Report</h2>
+                    {selectedProject && (
+                        <Button
+                            label="Fetch Report"
+                            onClick={async () => {
+                                setLoading((prev) => ({ ...prev, report: true }));
+                                try {
+                                    const reportData = await apiService.fetchReport(selectedProject);
+                                    notify('Report fetched successfully', { type: 'info' });
+                                    setReport(reportData);
+                                } catch (error) {
+                                    notify('Failed to fetch report', { type: 'error' });
+                                } finally {
+                                    setLoading((prev) => ({ ...prev, report: false }));
+                                }
+                            }}
+                            disabled={loading.report}
+                        />
+                    )}
+                    {loading.report && <CircularProgress />}
+                    {report && (
+                        <Box mt={2}
+                            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(report.report_html.replace(/\n/g, '')) }} >
+                            
+                        </Box>
+                    )}
+                </Box>
             </Box>
+            )}
         </Box>
     );
 };

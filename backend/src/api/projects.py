@@ -125,7 +125,7 @@ def get_project(project_id):
             # Convert ObjectId to string and format the response
             project['id'] = str(project['_id'])
             del project['_id']  # Remove the original `_id` field
-            logging.info(f"Project found: {project}")
+            logging.info(f"Project found: {project_id}")
             return jsonify(project), 200
         else:
             logging.warning(f"Project {project_id} not found.")

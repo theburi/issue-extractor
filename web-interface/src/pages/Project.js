@@ -47,6 +47,12 @@ export const ProjectsEdit = () => (
                 fullWidth
                 multiline
             />
+            <TextInput
+                source="prompts.check_relevance"
+                label="Check Relavance of the Issues"
+                fullWidth
+                multiline
+            />
 
         </SimpleForm>
     </Edit>

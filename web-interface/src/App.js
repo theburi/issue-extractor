@@ -7,6 +7,7 @@ import Config from './pages/Config';
 import { ProjectsList, ProjectsEdit, ProjectsCreate } from './pages/Project';
 import './App.css';
 import Processing from './pages/Processing';
+import FeatureRequest from './pages/FeatureRequest';
 import CustomMenu from './components/CustomMenu';
 
 const dataProvider = simpleRestProvider('/api'); // Update to relative path
@@ -18,6 +19,7 @@ const App = () => {
             <Resource name="config" list={Config} />
             <CustomRoutes>
                 <Route name="processing" path="/processing" element={<Processing />} />
+                <Route name="featurerequest" path="/feature" element={<FeatureRequest />} />
             </CustomRoutes>
         </Admin>
     );

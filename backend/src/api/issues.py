@@ -1,8 +1,8 @@
 from flask import Blueprint, request, jsonify
-from pymongo import MongoClient
 import logging
 from src.utils import load_configuration
 from src.db.mongodb_client import connect_to_mongo
+from src.llm_utils import invoke_llm
 
 # Setup logging
 logging.basicConfig(
@@ -41,3 +41,20 @@ def get_issue_count():
     except Exception as e:
         # Handle unexpected errors
         return jsonify({'error': 'An error occurred while fetching issue count', 'details': str(e)}), 500
+    
+@issues_bp.route('/api/issues/summary', methods=['POST'])
+def get_issue_summary():
+
+    data = request.get_json()
+    
+    if 'variables' not in data:
+        return jsonify({'error': 'variables is required in the request body'}), 400
+    if 'prompt' not in data:
+        return jsonify({'error': 'prompt is required in the request body'}), 400
+
+    issueText = data['variables']
+    promt = data['prompt']
+
+    result = invoke_llm(config, promt, issueText)
+
+    return jsonify({'summary': result}), 200

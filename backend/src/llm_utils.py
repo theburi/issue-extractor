@@ -1,4 +1,5 @@
 from langchain_ollama.llms import OllamaLLM
+from langchain_core.prompts import PromptTemplate
 from langchain_huggingface import HuggingFaceEmbeddings
 from typing import List, Dict
 import logging
@@ -6,10 +7,13 @@ import re
 import json
 
 def setup_llm(config: Dict, max_tokens=2000) -> OllamaLLM:
+    logging.info(f"Setting up LLM with model: {config['llm']}")
     return OllamaLLM(
         model=config["llm"]["model_name"],
         temperature=config["llm"]["temperature"],
-        max_tokens=max_tokens
+        max_tokens=max_tokens,
+        base_url=config["llm"]["base_url"]
+
     )
 
 def parse_llm_output(output: str) -> List[Dict]:
@@ -55,3 +59,20 @@ def setup_embeddings(config: Dict) -> HuggingFaceEmbeddings:
     return HuggingFaceEmbeddings(
         model_name=config["embeddings"]["model_name"]
     )
+
+def invoke_llm(config, prompt, input_variables, max_tokens=2000):
+
+    llm = setup_llm(config, max_tokens)
+    # Lets ask LLM if this is a problem related to the original question
+    llm_promt = PromptTemplate(
+        template=prompt,
+        input_variables=input_variables
+    )
+    chain = llm_promt | llm
+    results = chain.invoke(input_variables)
+    # if llm model name is deepseek wh need to remove text between <think> and </think> tags
+    if "deepseek" in config["llm"]["model_name"]:
+        results = re.sub(r'<think>.*?</think>', '', results,  flags=re.DOTALL)
+        logging.info(f"Results after removing <think> tags: {results}")
+
+    return results

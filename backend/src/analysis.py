@@ -1,4 +1,4 @@
-from src.llm_utils import parse_llm_output, setup_llm
+
 from langchain_core.prompts import PromptTemplate 
 from collections import Counter
 import logging
@@ -15,7 +15,7 @@ from src.db.mongodb_client import connect_to_mongo, load_collection, insert_to_c
 from src.preprocessing import clean_data
 from src.problem_extraction import standardize_problems
 from src.reporting import generate_enhanced_report, generate_problem_report
-from src.llm_utils import parse_llm_output, setup_llm, setup_embeddings
+from src.llm_utils import parse_llm_output, setup_embeddings, invoke_llm
 from src.utils import load_configuration
 from sklearn.metrics import pairwise_distances_argmin_min
 from sklearn.metrics import silhouette_score
@@ -29,32 +29,18 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(
 def analyze_description_problem_type(description, taxonomy, config):
     """
     Analyze the issue to determine its problem type using an LLM.
-    
-    Args:
-        description (str): The description of the issue.
-        taxonomy (dict): Taxonomy of problem types.
-    
-    Returns:
-        dict: {
-            "confidence": int,
-            "problem_type": str,
-            "problem_type_description": str
-        }
+
     """
 
     try:
-        llm = setup_llm(config)
-        prompt = PromptTemplate(
-            template=config["prompts"]["problem_type_classification"],
-            input_variables=["description", "taxonomy"]
-        )
-        chain = prompt | llm
 
-        results = chain.invoke({
-            "description":description,
+        parsed_output = invoke_llm(
+            config, 
+            config["prompts"]["problem_type_classification"], 
+            {
+                "description":description,
             "taxonomy": taxonomy
-        })
-        parsed_output = results
+            })
 
         if not parsed_output or "problem_type" not in parsed_output[0]:
             raise ValueError("Failed to parse LLM response.")
@@ -82,14 +68,9 @@ def analyze_description_problem_type(description, taxonomy, config):
 def problem_frequency_analysis(data: pd.DataFrame) -> pd.DataFrame:
     """
     Counts the frequency of each problem across the dataset.
-    
-    Args:
-        data (pd.DataFrame): Processed data with a 'problems' column.
-    
-    Returns:
-        pd.DataFrame: DataFrame with problems and their frequencies.
+
     """
-    print (data.columns)
+    
     if "problem_type" not in data.columns:
         raise ValueError("DataFrame must contain a 'problem_type' column")
     
@@ -125,7 +106,7 @@ def analyze_problem_trends(data: pd.DataFrame, date_column: str = "processed_at"
     logging.info("Problem trend analysis completed.")
     return trends
 
-def generate_cluster_summary(clustered_problems: Dict[int, List[Dict[str, str]]], llm, config) -> Dict[int, str]:
+def generate_cluster_summary(clustered_problems: Dict[int, List[Dict[str, str]]], config) -> Dict[int, str]:
     """
     Generate concise summaries for each cluster using LangChain.
 
@@ -137,8 +118,7 @@ def generate_cluster_summary(clustered_problems: Dict[int, List[Dict[str, str]]]
         Dict[int, str]: A dictionary where keys are cluster IDs and values are summaries.
     """
     logging.info("Generating summaries for each cluster.")
-    summaries = pd.DataFrame(columns=["cluster_id", "keys", "summary"])
-    llm = setup_llm(config, max_tokens=200)
+    summaries = pd.DataFrame(columns=["cluster_id", "keys", "summary"])    
 
     for cluster_id, problems in clustered_problems.items():
         descriptions = "\n".join([problem["description"] for problem in problems])
@@ -149,14 +129,8 @@ def generate_cluster_summary(clustered_problems: Dict[int, List[Dict[str, str]]]
             problem["key"] for problem in problems
         ]
         try:
-            prompt = PromptTemplate(
-                template=config["prompts"]["generate_cluster_summary"],
-                input_variables=["descriptions"]
-                )
-            chain = prompt | llm
-            results = chain.invoke({
-                "descriptions": descriptions
-                })
+            results = invoke_llm(config, config["prompts"]["generate_cluster_summary"], {"descriptions": descriptions})
+
             summary["summary"] = results.strip()
 
             logging.info(f"Summary for cluster {cluster_id}:")
@@ -228,7 +202,7 @@ def semantic_clustering(
     problem_rows: List[Dict[str, str]],
     embeddings: List[np.ndarray],
     n_clusters: int = 5,
-    outlier_threshold: float = 2.0
+    outlier_threshold: float = .1
 ) -> Dict[int, List[Dict[str, str]]]:
     
     """Cluster problems based on their semantic embeddings."""
@@ -284,11 +258,10 @@ def preprocess_clustered_problems(
     return pd.DataFrame(processed_data)
 
 
-def process_row(row, vector_store, llm, taxonomy, config, db, projectId):
+def process_row(row, vector_store, taxonomy, config, db, projectId):
     """Process a single row of data."""
     try:
         # Check if the record already exists
-
         existing_record = db[config["mongodb"]["processed_collection"]].find_one(
             {
                 "key": row["key"], 
@@ -301,37 +274,54 @@ def process_row(row, vector_store, llm, taxonomy, config, db, projectId):
                          config['prompts']['version']} already exists. Skipping processing.")
             return []
 
-        similar_docs = vector_store.similarity_search(row['description'], k=3)
-        similar_cases = "\n".join([d.page_content for d in similar_docs])
+        # Lets ask LLM if this is a problem related to the original question
+        updated_config=config.copy()
+        updated_config["llm"]["model_name"]=config["llm"]["model_name_small"]
+        results = invoke_llm(
+            updated_config, 
+            config["prompts"]["check_relevance"], 
+            { "text": row['description'] },
+            max_tokens=10)
 
-        prompt = PromptTemplate(
-            template=config["prompts"]["problem_extraction"],
-            input_variables=["text", "similar_cases"]
-        )
-        chain = prompt | llm
-        results = chain.invoke({
-            "text": row['description'],
-            "similar_cases": similar_cases
-        })
+        # check if return contains YES
+        if "yes" not in results.lower():
+            logging.info(f"Record with key {row['key']} is not relevant. Skipping processing.")
+            logging.info(f"LLM response: {results}")
+            return []
+        else:
+            logging.info(f"Record with key {row['key']} is relevant. Processing.")
+
+        # similar_docs = vector_store.similarity_search(row['description'], k=3)
+        # similar_cases = "\n".join([d.page_content for d in similar_docs])
+
+        results = invoke_llm(config, config["prompts"]["problem_extraction"], 
+                            { "text": row['description'] 
+                            # "similar_cases": similar_cases 
+                            })
+
         standardized_results = [standardize_problems(
             result, taxonomy) for result in parse_llm_output(results)]
         for result in standardized_results:
             result["customer_id"] = row["cid"]
             result["key"] = row["key"]
             result["version"] = config["prompts"]["version"]
+
+        logging.info(f"Processed row: {row['key']} with { len(standardized_results)} problems")
         return standardized_results
+        
     except Exception as e:
         logging.error(f"Error processing row: {e}", exc_info=True)
         return []
 
 
-def process_and_store_problems(cleaned_data, vector_store, llm, config, db, projectId):
+def process_and_store_problems(cleaned_data, vector_store, config, db, projectId):
     standardized_problems = []
     for _, row in cleaned_data.iterrows():
         if 'key' not in row:
             logging.error(f"Missing 'key' in row: {row}")
             continue
-        problems = process_row(row, vector_store, llm,
+
+        problems = process_row(row, vector_store,
                                config["taxonomy"], config, db, projectId)
         for problem in problems:
             standardized_problems.extend(problem)
@@ -357,8 +347,6 @@ def main_execution_flow(projectId, stage):
         # Load configuration
         config = load_configuration(projectId)
 
-        # Setup LLM and embeddings
-        llm = setup_llm(config)
         embeddings = setup_embeddings(config)
 
         # Connect to MongoDB
@@ -380,7 +368,7 @@ def main_execution_flow(projectId, stage):
 
             # Process documents and extract problems
             standardized_problems = process_and_store_problems(
-                cleaned_data, vector_store, llm, config, db, projectId)
+                cleaned_data, vector_store, config, db, projectId)
 
         if stage <= 2:
             # Load MongoDb Documents that were created in a previous code block to load all documents that exists in the collection
@@ -424,7 +412,7 @@ def main_execution_flow(projectId, stage):
             frequency = problem_frequency_analysis(clustered_problems_df)
 
             # Generate cluster summary report
-            summaries = generate_cluster_summary(clustered_problems, llm, config)
+            summaries = generate_cluster_summary(clustered_problems, config)
 
             # Save report in HTML format
 

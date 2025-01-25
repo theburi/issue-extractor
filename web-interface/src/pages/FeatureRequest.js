@@ -31,7 +31,7 @@ const apiService = {
 };
 const llm_default_prompts = { 
     get_summary: "You are an expert at analyzing customer issues. Identify the key problems described in the text below.\n {text}",
-    refusal_message: "Hello XXX,Thanks for your feature suggestion. After careful consideration, we've decided it doesn't align with our current product direction for reasons such as the described use case being too customer-specific.[... Please explain a little bit what the high level direction is and why it does not fit... The clearer we are here the better the customer experience.]Feel free to reach out through the ticket or your CSM if you have more questions.We can additionally involve Consulting if required.Appreciate your understanding.Best,[Your Name][Your Title/Position]"
+    refusal_message: "Write a message explaining to customer that their feature request will not be implemented. Here is Customer Request: {text}.\n Use the follwoing template:\n Hello,Thanks for your feature suggestion. After careful consideration, we've decided it doesn't align with our current product direction for reasons such as the described use case being too customer-specific.[... Please explain a little bit what the high level direction is and why it does not fit... The clearer we are here the better the customer experience.]Feel free to reach out through the ticket or your CSM if you have more questions.We can additionally involve Consulting if required.Appreciate your understanding.Best,[Your Name][Your Title/Position]"
 }
 
 const FeatureRequest = () => {
@@ -42,6 +42,7 @@ const FeatureRequest = () => {
     const [commentsOpen, setCommentsOpen] = useState(false);
     const [valueProposition, setValueProposition] = useState('');
     const [llm_prompts_get_summary, setLlmPromptGetSummary] = useState(llm_default_prompts.get_summary);
+    const [llm_prompts_refusal_message, setLlmPromptRefusalMessage] = useState(llm_default_prompts.refusal_message);
     const notify = useNotify();
     
 
@@ -169,7 +170,7 @@ const FeatureRequest = () => {
                     </Grid>
                     <Button onClick={() =>
                         handleFeatureSummary(
-                            'You are an expert at analyzing customer issues. Identify the key problems described in the text below.\n {text}',
+                            llm_prompts_get_summary,
                             setSummary
                         )}
                      variant="contained" color="primary">
@@ -180,24 +181,32 @@ const FeatureRequest = () => {
                     </Box>
                 </Grid> 
                 
-                </SimpleForm>
+                </SimpleForm >
+                <SimpleForm defaultValues={{ llm_prompts_refusal_message: llm_default_prompts.refusal_message }}>
                 <Box>
                     <h3>Feature Request Value Proposition</h3>
+                    <TextInput
+                        source="llm_prompts_refusal_message"                        
+                        label="Refusal Message"
+                        value={llm_prompts_refusal_message}
+                        onChange={(e) => setLlmPromptRefusalMessage(e.target.value)}
+                        fullWidth multiline
+                    />
                     <Button onClick={() =>
                         handleFeatureSummary(
-                            llm_prompts_get_summary,
+                            llm_prompts_refusal_message,
                             setValueProposition
                         )}
                      variant="contained" color="primary">
                         Generate Value Proposition
                     </Button>
                     <Box>           
-                    <h3>Feature Summary</h3>
                     <Markdown remarkPlugins={[remarkGfm]}>
                         {valueProposition.summary}
                     </Markdown>
                     </Box>
                 </Box> 
+                </SimpleForm>
             </Box>
             )}
         </Box>

@@ -1,6 +1,8 @@
 import { TextInput, SimpleForm, SaveButton, Toolbar, useNotify } from 'react-admin';
-import { Box, Grid, Stack, CircularProgress } from '@mui/material';
-import { useState } from 'react';
+import { Box, Grid, Stack, CircularProgress, IconButton } from '@mui/material';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
+import { useState, useEffect } from 'react';
 import { Collapse, Button } from '@mui/material';
 import  Markdown  from 'react-markdown';
 import remarkGfm  from 'remark-gfm';
@@ -17,22 +19,60 @@ const apiService = {
             if (!res.ok) throw new Error('Failed to process request');
             return res.json();
         }),
-        getFeatureSummary: (payload) => 
-            fetch(`/api/issues/summary`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(payload),
-            }).then(res => {
-                if (!res.ok) throw new Error('Failed to process request');
-                return res.json();
-            }),
+    getFeatureSummary: (payload) => 
+        fetch(`/api/issues/summary`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload),
+        }).then(res => {
+            if (!res.ok) throw new Error('Failed to process request');
+            return res.json();
+        }),
+    getTaskStatus: (apiPath, taskId) => fetch(`${apiPath}/${taskId}`).then((res) => res.json()),
 };
-const llm_default_prompts = { 
-    get_summary: "You are an expert at analyzing customer issues. Identify the key problems described in the text below.\n {text}",
-    refusal_message: "Write a message explaining to customer that their feature request will not be implemented. Here is Customer Request: {text}.\n Use the follwoing template:\n Hello,Thanks for your feature suggestion. After careful consideration, we've decided it doesn't align with our current product direction for reasons such as the described use case being too customer-specific.[... Please explain a little bit what the high level direction is and why it does not fit... The clearer we are here the better the customer experience.]Feel free to reach out through the ticket or your CSM if you have more questions.We can additionally involve Consulting if required.Appreciate your understanding.Best,[Your Name][Your Title/Position]"
-}
+const llm_default_prompts = [
+    {
+        id: 'get_problems',
+        name: 'Get Problems',
+        prompt: "You are an expert at analyzing customer issues. Identify the key problem described in the text below that is at a coare of the customer's request.\n {text}"
+    },
+    {
+        id: 'get_solution',
+        name: 'Get Solution',
+        prompt: "You are an expert at analyzing customer issues. Identify solution that could address customer's Feature request below.\n {text}"
+    },
+    {
+        id: 'refusal_message', 
+        name: 'Refusal Message',
+        prompt: "Write a message explaining to customer that their feature request will not be implemented. Here is Customer Request: {text}.\n Use the follwoing template:\n Hello,Thanks for your feature suggestion. After careful consideration, we've decided it doesn't align with our current product direction for reasons such as the described use case being too customer-specific.[... Please explain a little bit what the high level direction is and why it does not fit... The clearer we are here the better the customer experience.]Feel free to reach out through the ticket or your CSM if you have more questions.We can additionally involve Consulting if required.Appreciate your understanding.Best,[Your Name][Your Title/Position]"
+    }
+];
+
+// Custom hook for task polling
+const useTaskPolling = (taskId, apiPath, onStatusChange) => {
+    useEffect(() => {
+        if (!taskId || !apiPath) return;
+
+        const pollInterval = setInterval(async () => {
+            try {
+                const data = await apiService.getTaskStatus(apiPath, taskId);
+                onStatusChange(data);
+
+                // Stop polling if the task is completed or failed
+                if (data.status === 'completed' || data.status === 'failed') {
+                    clearInterval(pollInterval);                    
+                }
+            } catch (error) {
+                console.error('Polling error:', error);
+                clearInterval(pollInterval);
+            }
+        }, 10000);
+
+        return () => clearInterval(pollInterval); // Cleanup on unmount or dependency change
+    }, [taskId, apiPath, onStatusChange]);
+};
 
 const FeatureRequest = () => {
     const [jiraKey, setJiraKey] = useState('');
@@ -41,11 +81,21 @@ const FeatureRequest = () => {
     const [featureSummary, setSummary] = useState('');
     const [commentsOpen, setCommentsOpen] = useState(false);
     const [valueProposition, setValueProposition] = useState('');
-    const [llm_prompts_get_summary, setLlmPromptGetSummary] = useState(llm_default_prompts.get_summary);
-    const [llm_prompts_refusal_message, setLlmPromptRefusalMessage] = useState(llm_default_prompts.refusal_message);
+    const [llmPrompts, setLlmPrompts] = useState(llm_default_prompts);
     const notify = useNotify();
-    
-
+    const [promptsVisible, setPromptsVisible] = useState({});
+    const [taskId, setTaskId] = useState(null);
+    const [taskApiPath, setTaskApiPath] = useState(null);
+    const [loadingStates, setLoadingStates] = useState({});
+    // Add the task polling hook
+    useTaskPolling(taskId, taskApiPath, (data) => {
+        if (data.status === 'completed') {
+            setSummary(data.result);
+            notify('Feature summary processed successfully', { type: 'success' });
+        } else if (data.status === 'failed') {
+            notify('Failed to process feature summary', { type: 'error' });
+        }
+    });
 
     const handleProcessRequest = async () => {
         if (!jiraKey.trim()) {
@@ -71,13 +121,13 @@ const FeatureRequest = () => {
             <SaveButton
                 label="Process Feature Request"
                 onClick={handleProcessRequest}
-                // disabled={loading || !jiraKey.trim()}
             />
             {jiraIssueLoading && <CircularProgress size={24} style={{ marginLeft: 16 }} />}
         </Toolbar>
     );
 
-    const handleFeatureSummary = async (prompt, setResult) => {
+    const handleFeatureSummary = async (prompt, setResult, promptId) => {
+        setLoadingStates(prev => ({ ...prev, [promptId]: true }));
         const payload = {
             'variables': {'text': processingResult.data.description_llm},
             'prompt': prompt,
@@ -86,11 +136,15 @@ const FeatureRequest = () => {
         try {
             const result = await apiService.getFeatureSummary(payload);
             setResult(result);
+            setTaskId(result.task_id);
+            setTaskApiPath('/api/issues/summary/tasks'); 
             notify('Feature summay processed successfully', { type: 'success' });
         } catch (error) {
             console.error('Error:', error);
             notify(error.message || 'Failed to process feature summary', { type: 'error' });
-        } 
+        } finally {
+            setLoadingStates(prev => ({ ...prev, [prompt.id]: false }));
+        }
     };
 
     return (
@@ -156,57 +210,67 @@ const FeatureRequest = () => {
                         </Collapse>
                     </div>
                 </Box>
-                <SimpleForm defaultValues={{ llm_prompts_get_summary: llm_default_prompts.get_summary }}>                
-                <Grid container>
-                    <Grid item xs={3}> <h3>Feature Request Summary</h3> </Grid>
-                    <Grid item xs={9}>                         
-                            <TextInput
-                                source="llm_prompts_get_summary"                        
-                                label="Value Proposition"
-                                value={llm_prompts_get_summary}
-                                onChange={(e) => setLlmPromptGetSummary(e.target.value)}
-                                fullWidth multiline
-                            />
-                    </Grid>
-                    <Button onClick={() =>
-                        handleFeatureSummary(
-                            llm_prompts_get_summary,
-                            setSummary
-                        )}
-                     variant="contained" color="primary">
-                        Process Summary
-                    </Button>
-                    <Box>           
-                    <Markdown remarkPlugins={[remarkGfm]}>{featureSummary.summary}</Markdown>
-                    </Box>
-                </Grid> 
-                
-                </SimpleForm >
-                <SimpleForm defaultValues={{ llm_prompts_refusal_message: llm_default_prompts.refusal_message }}>
-                <Box>
-                    <h3>Feature Request Value Proposition</h3>
-                    <TextInput
-                        source="llm_prompts_refusal_message"                        
-                        label="Refusal Message"
-                        value={llm_prompts_refusal_message}
-                        onChange={(e) => setLlmPromptRefusalMessage(e.target.value)}
-                        fullWidth multiline
-                    />
-                    <Button onClick={() =>
-                        handleFeatureSummary(
-                            llm_prompts_refusal_message,
-                            setValueProposition
-                        )}
-                     variant="contained" color="primary">
-                        Generate Value Proposition
-                    </Button>
-                    <Box>           
-                    <Markdown remarkPlugins={[remarkGfm]}>
-                        {valueProposition.summary}
-                    </Markdown>
-                    </Box>
-                </Box> 
-                </SimpleForm>
+                {llm_default_prompts.map((prompt, index) => (
+                    <SimpleForm key={index} defaultValues={{ [`llm_prompts_${prompt.id}`]: prompt.prompt }} toolbar={null}>
+                        <Grid container spacing={2}>
+                            <Stack direction="row" alignItems="center" spacing={1}>
+                                <h3>{prompt.name}</h3>
+                                <IconButton
+                                        size="small"
+                                        onClick={() => setPromptsVisible(prev => ({
+                                            ...prev,
+                                            [prompt.id]: !prev[prompt.id]
+                                        }))}
+                                    >
+                                        {promptsVisible[prompt.id] ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                                </IconButton>
+                            </Stack>
+                            <Grid item xs={10}>
+                                <Collapse in={promptsVisible[prompt.id]}>
+                                    <TextInput
+                                        source={`llm_prompts_${prompt.id}`}
+                                        label={prompt.name}
+                                        value={prompt.prompt}
+                                        onChange={(e) => {
+                                            setLlmPrompts(prevPrompts => 
+                                                prevPrompts.map(p => 
+                                                    p.id === prompt.id 
+                                                        ? { ...p, prompt: e.target.value }
+                                                        : p
+                                                )
+                                            );
+                                        }}
+                                        fullWidth
+                                        multiline
+                                    />
+                                 </Collapse>
+                            </Grid>
+                            <Grid item xs={12}>
+                                <Button
+                                    onClick={() => handleFeatureSummary(
+                                        llmPrompts.find(p => p.id === prompt.id).prompt,
+                                        prompt.id === 'get_summary' ? setSummary : setValueProposition
+                                    )}
+                                    variant="contained"
+                                    color="primary"
+                                    sx={{ mt: 2, mb: 2 }}
+                                    disabled={loadingStates[prompt.id]}
+                                    startIcon={loadingStates[prompt.id] && <CircularProgress size={20} color="inherit" />}
+                                >
+                                    {loadingStates[prompt.id] 
+                                        ? 'Processing...' 
+                                        : (index === 0 ? 'Process Summary' : 'Generate Value Proposition')
+                                    }
+                                </Button>
+                                <Box>
+                                    <Markdown remarkPlugins={[remarkGfm]}>
+                                        {index === 0 ? featureSummary.summary : valueProposition.summary}
+                                    </Markdown>
+                                </Box>
+                            </Grid>
+                        </Grid>
+                    </SimpleForm>
+                ))}
             </Box>
             )}
         </Box>

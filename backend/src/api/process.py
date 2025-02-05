@@ -2,7 +2,6 @@ import uuid
 from flask import Blueprint, request, jsonify
 import logging
 import threading
-import time
 from src.analysis import main_execution_flow
 
 # Setup logging

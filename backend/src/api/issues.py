@@ -1,5 +1,7 @@
 from flask import Blueprint, request, jsonify
 import logging
+import threading
+import uuid
 from src.utils import load_configuration
 from src.db.mongodb_client import connect_to_mongo
 from src.llm_utils import invoke_llm
@@ -9,6 +11,9 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
+
+# In-memory task store (use a database for production)
+tasks = {}
 
 # Load configuration
 config = load_configuration()
@@ -20,6 +25,29 @@ issues_bp = Blueprint('issues', __name__)
 db = connect_to_mongo(
     config["mongodb"]["uri"], config["mongodb"]["database"])
 collection = db[config["mongodb"]["raw_collection"]]  # Replace with your collection name
+
+def long_running_process(task_id, config, promt, issueText):
+    """
+    Simulate a long-running process for a given stage.
+    """
+    try:
+        # Update task status to "in_progress"
+        tasks[task_id]['status'] = 'in_progress'
+
+        invoke_llm(config, promt, issueText)
+
+        # Example result based on stage
+        result = f"Processing LLM completed successfully"
+
+        # Mark task as completed and store result
+        tasks[task_id]['status'] = 'completed'
+        tasks[task_id]['result'] = result
+
+    except Exception as e:
+        # Handle task errors
+        logging.error(f"Error in task {task_id}: {str(e)}", exc_info=True)
+        tasks[task_id]['status'] = 'failed'
+        tasks[task_id]['result'] = str(e)
 
 @issues_bp.route('/api/issues/count', methods=['GET'])
 def get_issue_count():
@@ -44,17 +72,50 @@ def get_issue_count():
     
 @issues_bp.route('/api/issues/summary', methods=['POST'])
 def get_issue_summary():
-
-    data = request.get_json()
+    try:
+        data = request.get_json()
     
-    if 'variables' not in data:
-        return jsonify({'error': 'variables is required in the request body'}), 400
-    if 'prompt' not in data:
-        return jsonify({'error': 'prompt is required in the request body'}), 400
+        if 'variables' not in data:
+            return jsonify({'error': 'variables is required in the request body'}), 400
+        if 'prompt' not in data:
+            return jsonify({'error': 'prompt is required in the request body'}), 400
+        
+        # Generate a unique task ID
+        task_id = str(uuid.uuid4())
+        # Add task to the task store
+        tasks[task_id] = {'status': 'pending', 'result': None}
 
-    issueText = data['variables']
-    promt = data['prompt']
+        print("get_issue_summary")
+        issueText = data['variables']
+        promt = data['prompt']
+        print("get_issue_summary2")
 
-    result = invoke_llm(config, promt, issueText)
+        # Start the long-running process in a separate thread
+        thread = threading.Thread(target=long_running_process, args=(task_id,config, promt, issueText))
+        thread.start()
 
-    return jsonify({'summary': result}), 200
+        # Return the task ID to the client
+        return jsonify({'task_id': task_id}), 202
+    except Exception as e:
+        return jsonify({'error': 'An error occurred while fetching issue summary', 'details': str(e)}), 500
+
+@issues_bp.route('/api/issues/summary/tasks/<task_id>', methods=['GET'])
+def get_process_status(task_id):
+    """
+    Get the status of a long-running process by task ID.
+    """
+    try:
+        # Check if the task ID exists
+        if task_id not in tasks:
+            return jsonify({'error': 'Task not found'}), 404
+
+        # Return the status and result of the task
+        task = tasks[task_id]
+        return jsonify({
+            'task_id': task_id,
+            'status': task['status'],
+            'result': task['result']
+        }), 200
+    except Exception as e:
+        return jsonify({'error': 'An error occurred while fetching task status', 'details': str(e)}), 500
+
